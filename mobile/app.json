@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "BillboardEye",
+    "slug": "billboardeye-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "android": {
+      "package": "com.billboardeye.mobile"
+    },
+    "plugins": [
+      "expo-asset"
+    ]
+  }
+}
