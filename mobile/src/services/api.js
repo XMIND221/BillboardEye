@@ -69,8 +69,13 @@ export const getRapport = async (panneauId) => {
   return apiRequest(`/rapport/panneau/${panneauId}`);
 };
 
-export const getProjetPDFUrl = async (projetId) => {
-  return apiRequest(`/rapport/projet/${projetId}/pdf-url`);
+export const getProjetPDFUrl = async (projetId, templateId = "1") => {
+  const q = templateId ? `?template=${encodeURIComponent(templateId)}` : "";
+  return apiRequest(`/rapport/projet/${projetId}/pdf-url${q}`);
+};
+
+export const getReportTemplates = async () => {
+  return apiRequest("/rapport/templates");
 };
 
 export const getProjetReport = async (projetId) => {
@@ -93,6 +98,23 @@ export const addPhoto = async (formData) => {
     method: "POST",
     body: formData,
   });
+};
+
+export const uploadLogo = async (imageUri) => {
+  const formData = new FormData();
+  const filename = imageUri.split("/").pop() || `logo-${Date.now()}.jpg`;
+  const ext = filename.split(".").pop()?.toLowerCase() || "jpg";
+  const mimeType = ext === "png" ? "image/png" : "image/jpeg";
+  formData.append("image", {
+    uri: imageUri,
+    name: filename,
+    type: mimeType,
+  });
+  const result = await apiRequest("/upload/logo", {
+    method: "POST",
+    body: formData,
+  });
+  return result?.url || "";
 };
 
 export const syncData = async (payload) => {

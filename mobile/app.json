@@ -2,6 +2,12 @@
   "expo": {
     "name": "BillboardEye",
     "slug": "billboardeye-mobile",
+    "icon": "./assets/logo.png",
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1A1C2E"
+    },
     "version": "1.0.0",
     "orientation": "portrait",
     "ios": {

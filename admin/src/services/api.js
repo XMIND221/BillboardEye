@@ -53,3 +53,7 @@ export const getProjetPDFUrl = async (id) => {
   const response = await fetch(`${API_BASE_URL}/rapport/projet/${id}/pdf-url`);
   return parseResponse(response);
 };
+
+export const getProjetPDF = (id) => {
+  return `${API_BASE_URL}/rapport/projet/${id}/pdf`;
+};

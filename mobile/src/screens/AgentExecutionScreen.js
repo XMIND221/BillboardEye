@@ -7,6 +7,7 @@ import * as ImageManipulator from "expo-image-manipulator";
 import { addPhoto, createPanneau } from "../services/api";
 import { getMissionProgress, markZoneCompleted } from "../services/missionStorage";
 import { savePanneauOffline, STATUS_SYNCED } from "../services/offlineStorage";
+import Button from "../components/Button";
 
 const compressImage = async (uri) => {
   const compressed = await ImageManipulator.manipulateAsync(
@@ -46,7 +47,7 @@ export default function AgentExecutionScreen({ navigation, route }) {
           longitude: Number(position.coords.longitude),
         });
       } catch (_error) {
-        setError("GPS indisponible. Reessaie en exterieur.");
+        setError("GPS indisponible. Réessayez en extérieur.");
       }
       setCapturedAt(new Date().toISOString());
     };
@@ -73,7 +74,6 @@ export default function AgentExecutionScreen({ navigation, route }) {
       setLoading(true);
       setError("");
 
-      // Capture GPS au moment exact de la validation (position à la prise de photo)
       let finalGps = gps;
       try {
         const position = await Location.getCurrentPositionAsync({});
@@ -84,7 +84,7 @@ export default function AgentExecutionScreen({ navigation, route }) {
         setGps(finalGps);
       } catch (_) {
         if (!gps.latitude || !gps.longitude) {
-          setError("GPS indisponible. Reessaie en exterieur.");
+          setError("GPS indisponible. Réessayez en extérieur.");
           setLoading(false);
           return;
         }
@@ -181,14 +181,14 @@ export default function AgentExecutionScreen({ navigation, route }) {
       </TouchableOpacity>
       {!!faceBUri && <Image source={{ uri: faceBUri }} style={styles.preview} />}
 
-      <TouchableOpacity
-        style={[styles.validateButton, !canValidate && styles.validateDisabled]}
+      <Button
+        title="Valider panneau"
+        variant="success"
         onPress={validatePanel}
-        disabled={loading || !canValidate}
-        activeOpacity={0.85}
-      >
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.validateText}>Valider panneau</Text>}
-      </TouchableOpacity>
+        disabled={!canValidate || loading}
+        loading={loading}
+        style={[styles.validateButton, !canValidate && styles.validateDisabled]}
+      />
 
       {!!error && <Text style={styles.error}>{error}</Text>}
     </ScrollView>
@@ -196,29 +196,23 @@ export default function AgentExecutionScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, backgroundColor: theme.colors.background, padding: theme.spacing.md },
+  container: { flexGrow: 1, backgroundColor: theme.colors.background, padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl },
   header: { marginBottom: theme.spacing.lg },
-  title: { fontSize: 22, fontWeight: "800", color: theme.colors.text, marginBottom: 6 },
+  title: { fontSize: 24, fontWeight: "800", color: theme.colors.text, marginBottom: 6 },
   meta: { color: theme.colors.textSecondary, fontSize: 14, marginBottom: 4 },
   actionButton: {
     marginTop: theme.spacing.md,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: theme.colors.accent,
     borderRadius: theme.radius.lg,
-    paddingVertical: 16,
+    paddingVertical: 20,
     alignItems: "center",
-    backgroundColor: theme.colors.primaryLight,
+    backgroundColor: theme.colors.surface,
+    ...theme.shadows.sm,
   },
   actionText: { color: theme.colors.accent, fontWeight: "700", fontSize: 16 },
-  preview: { marginTop: theme.spacing.sm, width: "100%", height: 180, borderRadius: theme.radius.md },
-  validateButton: {
-    marginTop: theme.spacing.lg,
-    backgroundColor: theme.colors.success,
-    borderRadius: theme.radius.lg,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  validateDisabled: { backgroundColor: theme.colors.textMuted },
-  validateText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  preview: { marginTop: theme.spacing.sm, width: "100%", height: 180, borderRadius: theme.radius.lg },
+  validateButton: { marginTop: theme.spacing.xl },
+  validateDisabled: { opacity: 0.5 },
   error: { color: theme.colors.error, marginTop: theme.spacing.md, fontSize: 14 },
 });

@@ -35,7 +35,7 @@ export default function PanneauxMap({ panneaux }) {
     .map((panneau) => ({
       id: panneau.id,
       entreprise: panneau.entreprise,
-      adresse: panneau.localisation?.adresse || "Adresse non renseignee",
+      adresse: panneau.localisation?.adresse || "Adresse non renseignée",
       latitude: Number(panneau.localisation?.latitude),
       longitude: Number(panneau.localisation?.longitude),
       status: getMapStatus(panneau.statut),
@@ -61,7 +61,7 @@ export default function PanneauxMap({ panneaux }) {
               Statut: {point.status === "EN_COURS" ? "EN COURS" : point.status}
               <br />
               <a href={`/panneaux/${point.id}`} className="popup-link">
-                Voir detail
+                Voir détail
               </a>
             </Popup>
           </Marker>

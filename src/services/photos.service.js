@@ -46,6 +46,33 @@ const uploadToSupabase = async (file) => {
   return data.publicUrl;
 };
 
+const uploadLogoToSupabase = async (file) => {
+  const ext = (file.originalname || "").split(".").pop() || "jpg";
+  const fileName = `logo-${Date.now()}.${ext}`;
+  const filePath = `logos/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("panneaux-images")
+    .upload(filePath, file.buffer, {
+      contentType: file.mimetype || "image/jpeg",
+      upsert: false,
+    });
+
+  if (uploadError) {
+    const err = new Error(`Erreur upload logo: ${uploadError.message}`);
+    err.code = "SUPABASE_STORAGE_UPLOAD_ERROR";
+    throw err;
+  }
+
+  const { data } = supabase.storage.from("panneaux-images").getPublicUrl(filePath);
+  if (!data?.publicUrl) {
+    const err = new Error("Impossible de recuperer l'URL du logo.");
+    err.code = "SUPABASE_STORAGE_PUBLIC_URL_ERROR";
+    throw err;
+  }
+  return data.publicUrl;
+};
+
 const { randomUUID } = require("crypto");
 
 const addPhoto = async (data) => {
@@ -113,6 +140,7 @@ const getPhotosByPanneauId = async (panneauId) => {
 
 module.exports = {
   uploadToSupabase,
+  uploadLogoToSupabase,
   addPhoto,
   getPhotosByPanneauId,
 };

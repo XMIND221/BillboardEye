@@ -1,44 +1,57 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { theme } from "../theme";
 
-export default function RoleGateScreen({ onSelectRole }) {
+const ROLE_CONFIG = {
+  gestionnaire: {
+    label: "Mode Gestionnaire",
+    sub: "Créer campagnes, gérer les missions",
+    color: theme.colors.accent,
+    bg: theme.colors.pastels.pink,
+  },
+  agent: {
+    label: "Mode Agent terrain",
+    sub: "Exécuter les missions, capturer les panneaux",
+    color: theme.colors.accent,
+    bg: theme.colors.pastels.blue,
+  },
+  reporting: {
+    label: "Mode Reporting",
+    sub: "Générer des rapports PDF professionnels",
+    color: theme.colors.primary,
+    bg: theme.colors.pastels.purple,
+  },
+};
+
+export default function RoleGateScreen({ onSelectRole, onSignOut }) {
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <Image source={require("../../assets/logo.png")} style={styles.logoImage} resizeMode="contain" />
+        <Text style={styles.tagline}>Choisissez votre mode</Text>
+      </View>
+
       <View style={styles.content}>
-        <View style={styles.logoBlock}>
-          <Text style={styles.logo}>BillboardEye</Text>
-          <Text style={styles.tagline}>Choisissez votre mode</Text>
-        </View>
-
-        <View style={styles.card}>
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={() => onSelectRole("gestionnaire")}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryButtonText}>Mode Gestionnaire</Text>
-            <Text style={styles.primaryButtonSub}>Créer campagnes, gérer les missions</Text>
+        {onSignOut && (
+          <TouchableOpacity style={styles.signOutButton} onPress={onSignOut} activeOpacity={0.85}>
+            <Text style={styles.signOutText}>Se déconnecter</Text>
           </TouchableOpacity>
+        )}
 
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => onSelectRole("agent")}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.secondaryButtonText}>Mode Agent terrain</Text>
-            <Text style={styles.secondaryButtonSub}>Exécuter les missions, capturer les panneaux</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.tertiaryButton}
-            onPress={() => onSelectRole("reporting")}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.tertiaryButtonText}>Mode Reporting</Text>
-            <Text style={styles.tertiaryButtonSub}>Générer des rapports PDF professionnels</Text>
-          </TouchableOpacity>
-        </View>
+        {(["gestionnaire", "agent", "reporting"]).map((role) => {
+          const config = ROLE_CONFIG[role];
+          return (
+            <TouchableOpacity
+              key={role}
+              style={[styles.roleCard, { backgroundColor: config.bg }]}
+              onPress={() => onSelectRole(role)}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.roleLabel, { color: config.color }]}>{config.label}</Text>
+              <Text style={styles.roleSub}>{config.sub}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
@@ -47,87 +60,55 @@ export default function RoleGateScreen({ onSelectRole }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.backgroundDark,
   },
-  content: {
-    flex: 1,
-    justifyContent: "center",
-    padding: theme.spacing.lg,
-  },
-  logoBlock: {
+  header: {
+    paddingTop: 60,
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.xl,
     alignItems: "center",
-    marginBottom: theme.spacing.xxl,
   },
-  logo: {
-    fontSize: 36,
-    fontWeight: "800",
-    color: theme.colors.text,
-    letterSpacing: -0.5,
+  logoImage: {
+    width: 100,
+    height: 100,
+    marginBottom: theme.spacing.sm,
   },
   tagline: {
     marginTop: theme.spacing.sm,
-    fontSize: 15,
-    color: theme.colors.textSecondary,
+    fontSize: 16,
+    color: "rgba(255,255,255,0.8)",
     letterSpacing: 0.3,
   },
-  card: {
-    backgroundColor: theme.colors.primaryLight,
-    borderRadius: theme.radius.xl,
+  content: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+    borderTopLeftRadius: theme.radius.xl,
+    borderTopRightRadius: theme.radius.xl,
     padding: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    ...theme.shadows.lg,
+    paddingTop: theme.spacing.xl,
   },
-  primaryButton: {
-    backgroundColor: theme.colors.accent,
+  signOutButton: {
+    alignSelf: "flex-end",
+    marginBottom: theme.spacing.lg,
+  },
+  signOutText: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  roleCard: {
     borderRadius: theme.radius.lg,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
+    padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
+    ...theme.shadows.sm,
   },
-  primaryButtonText: {
-    color: "#fff",
+  roleLabel: {
     fontWeight: "700",
     fontSize: 17,
   },
-  primaryButtonSub: {
-    color: "rgba(255,255,255,0.85)",
-    fontSize: 13,
-    marginTop: 4,
-  },
-  secondaryButton: {
-    borderWidth: 1,
-    borderColor: theme.colors.accent,
-    borderRadius: theme.radius.lg,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-  },
-  secondaryButtonText: {
-    color: theme.colors.accent,
-    fontWeight: "700",
-    fontSize: 17,
-  },
-  secondaryButtonSub: {
+  roleSub: {
     color: theme.colors.textSecondary,
-    fontSize: 13,
-    marginTop: 4,
-  },
-  tertiaryButton: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.lg,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    marginTop: theme.spacing.md,
-  },
-  tertiaryButtonText: {
-    color: theme.colors.text,
-    fontWeight: "700",
-    fontSize: 17,
-  },
-  tertiaryButtonSub: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
+    fontSize: 14,
     marginTop: 4,
   },
 });

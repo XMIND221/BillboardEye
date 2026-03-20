@@ -4,16 +4,20 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  Image,
 } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
+import Card from "../components/Card";
+import Button from "../components/Button";
+import Input from "../components/Input";
 
 export default function LoginScreen() {
-  const { signIn } = useAuth();
+  const { signIn, resetPassword } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,63 +39,67 @@ export default function LoginScreen() {
     }
   };
 
+  const handleForgotPassword = () => {
+    if (!email.trim()) {
+      setError("Saisissez votre email pour réinitialiser le mot de passe.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    resetPassword(email.trim())
+      .then(() => Alert.alert("Email envoyé", "Vérifiez votre boîte mail pour réinitialiser votre mot de passe."))
+      .catch((err) => setError(err.message || "Erreur lors de l'envoi."))
+      .finally(() => setLoading(false));
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View style={styles.content}>
-        <View style={styles.logoBlock}>
-          <Text style={styles.logo}>BillboardEye</Text>
-          <Text style={styles.tagline}>Gestion terrain professionnelle</Text>
-        </View>
+      <View style={styles.header}>
+        <Image source={require("../../assets/logo.png")} style={styles.logoImage} resizeMode="contain" />
+        <Text style={styles.tagline}>Gestion terrain professionnelle</Text>
+      </View>
 
-        <View style={styles.card}>
+      <View style={styles.content}>
+        <Card variant="elevated" style={styles.card}>
           <Text style={styles.title}>Connexion</Text>
           <Text style={styles.subtitle}>Accédez à votre espace</Text>
 
-          <TextInput
+          <Input
             style={styles.input}
             placeholder="Email"
-            placeholderTextColor={theme.colors.textMuted}
             value={email}
-            onChangeText={(t) => {
-              setEmail(t);
-              setError("");
-            }}
+            onChangeText={(t) => { setEmail(t); setError(""); }}
             autoCapitalize="none"
             keyboardType="email-address"
             autoComplete="email"
           />
 
-          <TextInput
+          <Input
             style={styles.input}
             placeholder="Mot de passe"
-            placeholderTextColor={theme.colors.textMuted}
             value={password}
-            onChangeText={(t) => {
-              setPassword(t);
-              setError("");
-            }}
+            onChangeText={(t) => { setPassword(t); setError(""); }}
             secureTextEntry
             autoComplete="password"
           />
 
           {!!error && <Text style={styles.error}>{error}</Text>}
 
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Se connecter</Text>
-            )}
+          <TouchableOpacity style={styles.forgotLink} onPress={handleForgotPassword} disabled={loading}>
+            <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
           </TouchableOpacity>
-        </View>
+
+          <Button
+            title="Se connecter"
+            onPress={handleLogin}
+            loading={loading}
+            disabled={loading}
+            style={styles.button}
+          />
+        </Card>
       </View>
     </KeyboardAvoidingView>
   );
@@ -100,77 +108,65 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.backgroundDark,
   },
-  content: {
-    flex: 1,
-    justifyContent: "center",
-    padding: theme.spacing.lg,
-  },
-  logoBlock: {
+  header: {
+    paddingTop: 60,
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.xxl,
     alignItems: "center",
-    marginBottom: theme.spacing.xxl,
   },
-  logo: {
-    fontSize: 36,
-    fontWeight: "800",
-    color: theme.colors.text,
-    letterSpacing: -0.5,
+  logoImage: {
+    width: 120,
+    height: 120,
+    marginBottom: theme.spacing.sm,
   },
   tagline: {
     marginTop: theme.spacing.sm,
-    fontSize: 15,
-    color: theme.colors.textSecondary,
+    fontSize: 16,
+    color: "rgba(255,255,255,0.8)",
     letterSpacing: 0.3,
   },
-  card: {
-    backgroundColor: theme.colors.primaryLight,
-    borderRadius: theme.radius.xl,
+  content: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+    borderTopLeftRadius: theme.radius.xl,
+    borderTopRightRadius: theme.radius.xl,
     padding: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    ...theme.shadows.lg,
+    paddingTop: theme.spacing.xl,
+  },
+  card: {
+    padding: theme.spacing.xl,
   },
   title: {
-    fontSize: 22,
-    fontWeight: "700",
+    fontSize: 24,
+    fontWeight: "800",
     color: theme.colors.text,
     marginBottom: theme.spacing.xs,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing.lg,
   },
   input: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
     marginBottom: theme.spacing.md,
-    fontSize: 16,
-    color: theme.colors.text,
-    backgroundColor: "rgba(15, 23, 42, 0.5)",
   },
   error: {
     color: theme.colors.error,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
     fontSize: 14,
   },
+  forgotLink: {
+    alignSelf: "flex-end",
+    marginBottom: theme.spacing.md,
+  },
+  forgotText: {
+    color: theme.colors.accent,
+    fontSize: 14,
+    fontWeight: "600",
+  },
   button: {
-    backgroundColor: theme.colors.accent,
-    borderRadius: theme.radius.lg,
-    paddingVertical: 16,
-    alignItems: "center",
     marginTop: theme.spacing.sm,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 16,
   },
 });

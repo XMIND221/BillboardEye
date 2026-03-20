@@ -7,12 +7,14 @@ const photosRoutes = require("./photos.routes");
 const rapportRoutes = require("./rapport.routes");
 const syncRoutes = require("./sync.routes");
 const projetsRoutes = require("./projets.routes");
+const uploadRoutes = require("./upload.routes");
 
 const router = express.Router();
 
 router.use("/", testRoutes);
 router.use("/auth", authRoutes);
 router.use(authMiddleware);
+router.use("/upload", uploadRoutes);
 router.use("/panneaux", panneauxRoutes);
 router.use("/photos", photosRoutes);
 router.use("/rapport", rapportRoutes);

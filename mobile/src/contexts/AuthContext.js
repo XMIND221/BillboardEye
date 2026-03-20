@@ -54,13 +54,21 @@ export function AuthProvider({ children }) {
     setSession(null);
   };
 
+  const resetPassword = async (email) => {
+    if (!supabase) throw new Error("Auth non configuré");
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: undefined,
+    });
+    if (error) throw error;
+  };
+
   const getToken = async () => {
     const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
     return token || session?.access_token;
   };
 
   return (
-    <AuthContext.Provider value={{ session, loading, signIn, signOut, getToken, isAuthConfigured }}>
+    <AuthContext.Provider value={{ session, loading, signIn, signOut, resetPassword, getToken, isAuthConfigured }}>
       {children}
     </AuthContext.Provider>
   );

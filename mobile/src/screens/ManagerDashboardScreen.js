@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, ScrollView } from "react-native";
 import { getProjets, getProjetReport } from "../services/api";
 import { theme } from "../theme";
+import Button from "../components/Button";
 
 export default function ManagerDashboardScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
@@ -65,16 +66,23 @@ export default function ManagerDashboardScreen({ navigation }) {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.accent} />}
     >
       <Text style={styles.title}>Dashboard</Text>
-      {!!error && <Text style={styles.error}>{error}</Text>}
+      {!!error && (
+        <View style={styles.errorBlock}>
+          <Text style={styles.error}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadData} activeOpacity={0.85}>
+            <Text style={styles.retryText}>Réessayer</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       {loading ? (
         <ActivityIndicator size="large" color={theme.colors.accent} style={styles.loader} />
       ) : (
         <>
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: theme.colors.pastels.blue }]}>
             <Text style={styles.label}>Campagnes actives</Text>
             <Text style={styles.value}>{stats.activeCampaigns}</Text>
           </View>
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: theme.colors.pastels.green }]}>
             <Text style={styles.label}>Progression globale</Text>
             <Text style={styles.value}>
               {stats.completedPanels} / {stats.totalPanels} panneaux
@@ -84,12 +92,8 @@ export default function ManagerDashboardScreen({ navigation }) {
             </View>
             <Text style={styles.progressText}>{progress}%</Text>
           </View>
-          <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate("ManagerCreateCampaign")} activeOpacity={0.85}>
-            <Text style={styles.primaryText}>Créer une campagne</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate("ManagerCampaigns")} activeOpacity={0.85}>
-            <Text style={styles.secondaryText}>Voir les campagnes</Text>
-          </TouchableOpacity>
+          <Button title="Créer une campagne" variant="primary" onPress={() => navigation.navigate("ManagerCreateCampaign")} style={styles.primaryButton} />
+          <Button title="Voir les campagnes" variant="secondary" onPress={() => navigation.navigate("ManagerCampaigns")} style={styles.secondaryButton} />
         </>
       )}
     </ScrollView>
@@ -109,13 +113,10 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.lg,
   },
   card: {
-    backgroundColor: theme.colors.primaryLight,
     borderRadius: theme.radius.lg,
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    ...theme.shadows.sm,
+    ...theme.shadows.md,
   },
   label: {
     color: theme.colors.textSecondary,
@@ -129,8 +130,8 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   progressBar: {
-    height: 6,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    height: 8,
+    backgroundColor: "rgba(0,0,0,0.1)",
     borderRadius: theme.radius.full,
     marginTop: 12,
     overflow: "hidden",
@@ -146,34 +147,25 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   primaryButton: {
-    marginTop: theme.spacing.md,
-    backgroundColor: theme.colors.accent,
-    borderRadius: theme.radius.lg,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  primaryText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 16,
+    marginTop: theme.spacing.lg,
   },
   secondaryButton: {
     marginTop: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.accent,
-    borderRadius: theme.radius.lg,
-    paddingVertical: 16,
-    alignItems: "center",
   },
-  secondaryText: {
-    color: theme.colors.accent,
-    fontWeight: "700",
-    fontSize: 16,
-  },
+  errorBlock: { marginBottom: theme.spacing.md },
   error: {
     color: theme.colors.error,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
     fontSize: 14,
   },
+  retryButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: theme.radius.md,
+    borderWidth: 2,
+    borderColor: theme.colors.accent,
+  },
+  retryText: { color: theme.colors.accent, fontWeight: "600", fontSize: 14 },
   loader: { marginTop: 48 },
 });

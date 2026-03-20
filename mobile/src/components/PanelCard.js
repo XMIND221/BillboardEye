@@ -4,20 +4,20 @@ import { Image } from "expo-image";
 import { theme } from "../theme";
 
 const STATUS_UI = {
-  pending: { icon: "🟠", label: "En attente" },
-  synced: { icon: "🟢", label: "Synchronise" },
-  error: { icon: "🔴", label: "Erreur" },
+  pending: { icon: "🟠", label: "En attente", color: theme.colors.warning },
+  synced: { icon: "🟢", label: "Synchronisé", color: theme.colors.success },
+  error: { icon: "🔴", label: "Erreur", color: theme.colors.error },
 };
 
-export default function PanelCard({ panneau }) {
+export default function PanelCard({ panneau, projetNom }) {
   const status = STATUS_UI[panneau.statut] || STATUS_UI.pending;
   const hasPhotos = panneau.photos && (panneau.photos.faceA?.url || panneau.photos.faceB?.url);
 
   return (
     <View style={styles.card}>
       <Text style={styles.title}>{panneau.entreprise}</Text>
-      <Text style={styles.meta}>{panneau.localisation?.adresse || "Adresse non renseignee"}</Text>
-      <Text style={styles.meta}>Campagne: {panneau.projetId || "Non liee"}</Text>
+      <Text style={styles.meta}>{panneau.localisation?.adresse || "Adresse non renseignée"}</Text>
+      <Text style={styles.meta}>Campagne : {projetNom || panneau.projetId || "Non liée"}</Text>
       <Text style={styles.meta}>
         {panneau.localisation?.latitude}, {panneau.localisation?.longitude}
       </Text>
@@ -47,7 +47,7 @@ export default function PanelCard({ panneau }) {
           )}
         </View>
       )}
-      <Text style={styles.status}>
+      <Text style={[styles.status, { color: status.color }]}>
         {status.icon} Statut: {status.label}
       </Text>
     </View>
@@ -56,24 +56,22 @@ export default function PanelCard({ panneau }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: theme.colors.primaryLight,
+    backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.lg,
-    padding: theme.spacing.md,
+    padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
     ...theme.shadows.sm,
   },
-  title: { fontSize: 16, fontWeight: "700", marginBottom: 4, color: theme.colors.text },
-  meta: { fontSize: 13, color: theme.colors.textSecondary, marginBottom: 2 },
-  status: { marginTop: theme.spacing.sm, fontWeight: "500", color: theme.colors.textSecondary, fontSize: 13 },
-  photosRow: { flexDirection: "row", marginTop: theme.spacing.md },
-  photoBlock: { flex: 1, marginHorizontal: 4 },
+  title: { fontSize: 17, fontWeight: "700", marginBottom: 4, color: theme.colors.text },
+  meta: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: 2 },
+  status: { marginTop: theme.spacing.sm, fontWeight: "600", fontSize: 13 },
+  photosRow: { flexDirection: "row", marginTop: theme.spacing.md, gap: theme.spacing.sm },
+  photoBlock: { flex: 1 },
   photoLabel: { fontSize: 12, fontWeight: "600", color: theme.colors.textSecondary, marginBottom: 4 },
   photo: {
     width: "100%",
     aspectRatio: 1,
-    borderRadius: theme.radius.sm,
-    backgroundColor: "rgba(0,0,0,0.2)",
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.borderLight,
   },
 });

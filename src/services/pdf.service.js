@@ -12,14 +12,23 @@ const supabaseStorage = process.env.SUPABASE_SERVICE_ROLE_KEY
   ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
   : supabase;
 
-// Identité BillboardEye — empreinte entreprise sur tous les rapports
 const BILLBOARD_EYE = {
   name: "BillboardEye",
-  tagline: "Rapport généré par BillboardEye",
-  primary: "#0F172A",
-  accent: "#2563EB",
-  muted: "#64748B",
-  light: "#F8FAFC",
+  tagline: "Rapport premium généré par BillboardEye",
+};
+
+// 5 templates de rapport — palettes distinctes
+const REPORT_TEMPLATES = {
+  "1": { id: "1", name: "Begué", primary: "#1A237E", accent: "#2c7a7b", boxBg: "#E0F2F1", muted: "#64748B", border: "#E2E8F0" },
+  "2": { id: "2", name: "Classique", primary: "#1E293B", accent: "#2563EB", boxBg: "#EFF6FF", muted: "#64748B", border: "#E2E8F0" },
+  "3": { id: "3", name: "Élégant", primary: "#4C1D95", accent: "#B91C1C", boxBg: "#FEF3C7", muted: "#6B7280", border: "#E5E7EB" },
+  "4": { id: "4", name: "Moderne", primary: "#0F172A", accent: "#EA580C", boxBg: "#FFF7ED", muted: "#64748B", border: "#E2E8F0" },
+  "5": { id: "5", name: "Précis", primary: "#111827", accent: "#059669", boxBg: "#ECFDF5", muted: "#6B7280", border: "#D1FAE5" },
+};
+
+const getTemplate = (id) => {
+  const key = String(id || "1");
+  return REPORT_TEMPLATES[key] || REPORT_TEMPLATES["1"];
 };
 
 // ——— Design premium : constantes ———
@@ -32,8 +41,8 @@ const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN_X;
 const CONTENT_HEIGHT = PAGE_HEIGHT - 2 * MARGIN_Y - FOOTER_H;
 
 const FONT_TITLE = 42;
-const FONT_SECTION = 24;
-const FONT_SUBSECTION = 16;
+const FONT_SECTION = 20;
+const FONT_SUBSECTION = 14;
 const FONT_BODY = 11;
 const FONT_CAPTION = 9;
 
@@ -85,7 +94,7 @@ const fetchStaticMapBuffer = async (panneaux) => {
   if (points.length === 0 || !MAPBOX_TOKEN) return null;
   const centerLng = points.reduce((s, p) => s + p.longitude, 0) / points.length;
   const centerLat = points.reduce((s, p) => s + p.latitude, 0) / points.length;
-  const pins = points.map((p) => `pin-l+2563eb(${p.longitude},${p.latitude})`).join(",");
+  const pins = points.map((p) => `pin-l+00d4aa(${p.longitude},${p.latitude})`).join(",");
   const mapUrl = `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${pins}/${centerLng},${centerLat},12/800x500?access_token=${MAPBOX_TOKEN}`;
   return fetchImageAsBuffer(mapUrl);
 };
@@ -103,214 +112,293 @@ const ensurePdfBucketExists = async () => {
 const buildPdfFileName = (type, id) =>
   type === "projet" ? `rapport-projet-${id}.pdf` : `rapport-panneau-${id}.pdf`;
 
-// ——— Helpers design premium ———
-const addFooter = (doc, pageNum, totalPages, accentColor) => {
+const addFooter = (doc, pageNum, totalPages, theme) => {
   const y = PAGE_HEIGHT - FOOTER_H + 14;
-  doc.strokeColor(accentColor).lineWidth(0.3).moveTo(MARGIN_X, PAGE_HEIGHT - FOOTER_H).lineTo(PAGE_WIDTH - MARGIN_X, PAGE_HEIGHT - FOOTER_H).stroke();
-  doc.fontSize(FONT_CAPTION).fillColor(BILLBOARD_EYE.muted);
+  doc.strokeColor(theme.border).lineWidth(0.3).moveTo(MARGIN_X, PAGE_HEIGHT - FOOTER_H).lineTo(PAGE_WIDTH - MARGIN_X, PAGE_HEIGHT - FOOTER_H).stroke();
+  doc.fontSize(8).fillColor(theme.muted);
   doc.text(BILLBOARD_EYE.tagline, MARGIN_X, y);
   doc.text(totalPages ? `${pageNum} / ${totalPages}` : String(pageNum), PAGE_WIDTH - MARGIN_X - 40, y, { width: 40, align: "right" });
 };
 
-const drawCoverPage = (doc, reportTitle, clientName, accentColor) => {
-  doc.y = MARGIN_Y;
-  doc.fillColor(BILLBOARD_EYE.primary).fontSize(FONT_CAPTION).font("Helvetica").text(`${BILLBOARD_EYE.name.toUpperCase()} · Premium`, 0, doc.y, { width: PAGE_WIDTH, align: "center" });
-  doc.y = PAGE_HEIGHT / 2 - 100;
-  doc.strokeColor(accentColor).lineWidth(2).moveTo(PAGE_WIDTH / 2 - 60, doc.y).lineTo(PAGE_WIDTH / 2 + 60, doc.y).stroke();
-  doc.y += 24;
-  doc.fillColor(BILLBOARD_EYE.primary).fontSize(FONT_TITLE).font("Helvetica-Bold").text(reportTitle, MARGIN_X, doc.y, { width: CONTENT_WIDTH, align: "center" });
-  doc.y += 52;
-  doc.font("Helvetica").fontSize(FONT_BODY).fillColor(BILLBOARD_EYE.muted).text(clientName, { width: PAGE_WIDTH, align: "center" });
-  doc.y = PAGE_HEIGHT - FOOTER_H - 40;
-  doc.fontSize(FONT_CAPTION).fillColor(BILLBOARD_EYE.muted).text(BILLBOARD_EYE.tagline, { width: PAGE_WIDTH, align: "center" });
+const BOX_WIDTH = 420;
+const BOX_HEIGHT = 220;
+const BOX_RADIUS = 24;
+
+const drawCoverPage = (doc, reportTitle, clientName, theme, logos = {}, duree = "") => {
+  doc.fillColor("#FFFFFF").rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT).fill();
+
+  const boxX = (PAGE_WIDTH - BOX_WIDTH) / 2;
+  const boxY = PAGE_HEIGHT / 2 - BOX_HEIGHT / 2 - 40;
+
+  doc.fillColor(theme.boxBg);
+  if (typeof doc.roundedRect === "function") {
+    doc.roundedRect(boxX, boxY, BOX_WIDTH, BOX_HEIGHT, BOX_RADIUS).fill();
+  } else {
+    doc.rect(boxX, boxY, BOX_WIDTH, BOX_HEIGHT).fill();
+  }
+
+  doc.strokeColor(theme.accent).lineWidth(3).moveTo(boxX + 80, boxY + 50).lineTo(boxX + BOX_WIDTH - 80, boxY + 50).stroke();
+
+  doc.y = boxY + 70;
+  doc.fillColor(theme.primary).fontSize(28).font("Helvetica-Bold").text((reportTitle || "").toUpperCase(), boxX, doc.y, { width: BOX_WIDTH, align: "center" });
+  doc.y += 28;
+  doc.font("Helvetica").fontSize(14).fillColor(theme.primary).text(`Client : ${clientName || "-"}`, { width: PAGE_WIDTH, align: "center" });
+  if (duree) {
+    doc.y += 18;
+    doc.font("Helvetica").fontSize(13).fillColor(theme.accent).text(`Durée ${duree}`, { width: PAGE_WIDTH, align: "center" });
+  }
+
+  doc.y = PAGE_HEIGHT - FOOTER_H - 30;
+  doc.fontSize(9).fillColor(theme.muted).text(BILLBOARD_EYE.tagline, { width: PAGE_WIDTH, align: "center" });
 };
 
-const drawStatsPage = (doc, projet, summary, zones, mapBuffer, accentColor) => {
+const drawStatsPage = (doc, projet, summary, zones, mapBuffer, theme) => {
+  doc.fillColor("#FFFFFF").rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT).fill();
   doc.y = MARGIN_Y;
-  doc.fontSize(FONT_SECTION).font("Helvetica-Bold").fillColor(BILLBOARD_EYE.primary).text("Résultats terrain", MARGIN_X, doc.y);
-  doc.y += 36;
+  doc.fontSize(FONT_SECTION).font("Helvetica-Bold").fillColor(theme.primary).text("Résultats terrain", MARGIN_X, doc.y);
+  doc.y += 8;
+  doc.strokeColor(theme.accent).lineWidth(2).moveTo(MARGIN_X, doc.y).lineTo(MARGIN_X + 100, doc.y).stroke();
+  doc.y += 28;
 
-  const statW = CONTENT_WIDTH / 3;
-  const statH = 70;
+  const statW = (CONTENT_WIDTH - 32) / 3;
+  const statH = 82;
   const stats = [
     { label: "Total panneaux", value: String(summary.total) },
     { label: "Complétés", value: String(summary.completed) },
     { label: "Restants", value: String(summary.remaining) },
   ];
   stats.forEach((s, i) => {
-    const x = MARGIN_X + i * (statW + 12);
-    doc.rect(x, doc.y, statW, statH).strokeColor("#E2E8F0").lineWidth(0.5).stroke();
-    doc.fontSize(28).font("Helvetica-Bold").fillColor(accentColor).text(s.value, x + 12, doc.y + 18, { width: statW - 24, align: "center" });
-    doc.fontSize(FONT_CAPTION).fillColor(BILLBOARD_EYE.muted).text(s.label, x + 12, doc.y + 50, { width: statW - 24, align: "center" });
+    const x = MARGIN_X + i * (statW + 16);
+    doc.fillColor("#FFFFFF").rect(x + 2, doc.y + 2, statW, statH).fill();
+    doc.rect(x, doc.y, statW, statH).strokeColor(theme.border).lineWidth(0.5).stroke();
+    doc.fontSize(38).font("Helvetica-Bold").fillColor(theme.accent).text(s.value, x, doc.y + 18, { width: statW, align: "center" });
+    doc.fontSize(FONT_CAPTION).fillColor(theme.primary).text(s.label, x, doc.y + 62, { width: statW, align: "center" });
   });
   doc.y += statH + 28;
 
-  doc.fontSize(FONT_BODY).fillColor(BILLBOARD_EYE.primary);
-  doc.text(`Client : ${projet.entreprise}`, MARGIN_X, doc.y);
-  doc.y += 14;
-  doc.text(`Campagne : ${projet.nom}`, MARGIN_X, doc.y);
-  doc.y += 14;
-  doc.text(`Durée : ${projet.duree || "Non renseignée"}`, MARGIN_X, doc.y);
-  doc.y += 14;
-  doc.text(`Zones : ${zones.length}`, MARGIN_X, doc.y);
-  doc.y += 14;
-  doc.text(`Date : ${projet.date ? new Date(projet.date).toLocaleDateString("fr-FR") : "N/A"}`, MARGIN_X, doc.y);
-  doc.y += 24;
+  const gridY = doc.y;
+  const leftCol = MARGIN_X;
+  const rightCol = MARGIN_X + CONTENT_WIDTH / 2;
+  const rowH = 22;
+  const gridRows = [
+    { l: "Client", r: projet.entreprise || "-" },
+    { l: "Campagne", r: projet.nom || "-" },
+    { l: "Durée", r: projet.duree || "Non renseignée" },
+    { l: "Zones", r: String(zones.length) },
+    { l: "Date", r: projet.date ? new Date(projet.date).toLocaleDateString("fr-FR") : "N/A" },
+    { l: "Agent", r: projet.assignedAgent || "Non assigné" },
+  ];
+  gridRows.forEach((row, i) => {
+    const y = gridY + i * rowH;
+    doc.strokeColor(theme.border).lineWidth(0.3).moveTo(MARGIN_X, y).lineTo(MARGIN_X + CONTENT_WIDTH, y).stroke();
+    doc.fontSize(FONT_BODY).fillColor(theme.muted).text(row.l, leftCol, y + 4);
+    doc.fillColor(theme.primary).text(row.r, rightCol, y + 4, { width: CONTENT_WIDTH / 2 - 10 });
+  });
+  doc.y = gridY + gridRows.length * rowH + 20;
+
+  if (projet.instructions) {
+    doc.fontSize(FONT_SUBSECTION).font("Helvetica-Bold").fillColor(theme.primary).text("Instructions terrain", MARGIN_X, doc.y);
+    doc.y += 6;
+    doc.strokeColor(theme.accent).lineWidth(0.5).moveTo(MARGIN_X, doc.y).lineTo(MARGIN_X + 60, doc.y).stroke();
+    doc.y += 20;
+    doc.fontSize(FONT_BODY).fillColor(theme.muted);
+    const instrH = doc.heightOfString(projet.instructions, { width: CONTENT_WIDTH });
+    doc.text(projet.instructions, MARGIN_X, doc.y, { width: CONTENT_WIDTH });
+    doc.y += instrH + 24;
+  }
 
   if (mapBuffer) {
-    doc.fontSize(FONT_SUBSECTION).font("Helvetica-Bold").fillColor(BILLBOARD_EYE.primary).text("Zones couvertes", MARGIN_X, doc.y);
+    doc.fontSize(FONT_SUBSECTION).font("Helvetica-Bold").fillColor(theme.primary).text("Zones couvertes", MARGIN_X, doc.y);
+    doc.y += 6;
+    doc.strokeColor(theme.accent).lineWidth(0.5).moveTo(MARGIN_X, doc.y).lineTo(MARGIN_X + 60, doc.y).stroke();
     doc.y += 24;
-    doc.rect(MARGIN_X, doc.y, CONTENT_WIDTH, MAP_HEIGHT).strokeColor("#E2E8F0").lineWidth(0.5).stroke();
+    doc.rect(MARGIN_X, doc.y, CONTENT_WIDTH, MAP_HEIGHT).strokeColor("#CBD5E1").lineWidth(0.3).stroke();
     doc.image(mapBuffer, MARGIN_X + 2, doc.y + 2, { width: CONTENT_WIDTH - 4, height: MAP_HEIGHT - 4 });
     doc.y += MAP_HEIGHT + 12;
+  } else if (zones.length > 0) {
+    doc.fontSize(FONT_SUBSECTION).font("Helvetica-Bold").fillColor(theme.primary).text("Zones couvertes", MARGIN_X, doc.y);
+    doc.y += 6;
+    doc.strokeColor(theme.accent).lineWidth(0.5).moveTo(MARGIN_X, doc.y).lineTo(MARGIN_X + 60, doc.y).stroke();
+    doc.y += 24;
+    doc.rect(MARGIN_X, doc.y, CONTENT_WIDTH, 120).strokeColor("#E2E8F0").lineWidth(0.5).stroke();
+    doc.fontSize(FONT_BODY).fillColor(BILLBOARD_EYE.muted).text("Carte non disponible.", MARGIN_X + 16, doc.y + 24, { width: CONTENT_WIDTH - 32, align: "center" });
+    doc.fontSize(FONT_CAPTION).fillColor(BILLBOARD_EYE.muted).text(`Zones : ${zones.join(" · ")}`, MARGIN_X + 16, doc.y + 70, { width: CONTENT_WIDTH - 32, align: "center" });
+    doc.y += 132;
   }
 };
 
-const drawPhotoPair = (doc, faceABuf, faceBBuf, zoneName, gps, accentColor) => {
+const drawPhotoPair = (doc, faceABuf, faceBBuf, zoneName, gps, theme, observationsA = "", observationsB = "") => {
+  doc.fillColor("#FFFFFF").rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT).fill();
+  doc.y = MARGIN_Y;
+
+  doc.fontSize(22).font("Helvetica-Bold").fillColor(theme.primary).text("Panneau page", MARGIN_X, doc.y);
+  doc.y += 28;
+
+  const zoneY = doc.y;
+  doc.fontSize(10).font("Helvetica-Bold").fillColor(theme.primary).text("NOM DE LA ZONE :", MARGIN_X, zoneY);
+  doc.fontSize(10).font("Helvetica-Bold").fillColor(theme.primary).text("COORDONNÉES GPS", MARGIN_X + CONTENT_WIDTH / 2, zoneY);
+  doc.y = zoneY + 14;
+  doc.fontSize(16).font("Helvetica-Bold").fillColor(theme.primary).text(zoneName, MARGIN_X, doc.y);
+  doc.fontSize(FONT_BODY).fillColor(theme.primary).text(`[${gps}]`, MARGIN_X + CONTENT_WIDTH / 2, doc.y, { width: CONTENT_WIDTH / 2 - 20 });
+  doc.y += 6;
+  doc.strokeColor(theme.accent).lineWidth(2).moveTo(MARGIN_X, doc.y).lineTo(MARGIN_X + 220, doc.y).stroke();
+  doc.y += 24;
+
   const halfW = (CONTENT_WIDTH - IMG_GAP) / 2;
   const imgW = Math.min(IMG_SIZE, halfW - 8);
   const imgH = (imgW * 3) / 4;
-
-  doc.fontSize(FONT_SUBSECTION).font("Helvetica-Bold").fillColor(BILLBOARD_EYE.primary).text(zoneName);
-  doc.moveDown(0.3);
-  doc.fontSize(FONT_CAPTION).fillColor(BILLBOARD_EYE.muted).text(`GPS ${gps}`);
-  doc.moveDown(0.8);
-
+  const framePad = 8;
   const startY = doc.y;
   const leftX = MARGIN_X;
   const rightX = MARGIN_X + halfW + IMG_GAP;
 
-  if (faceABuf) {
-    doc.rect(leftX, startY, imgW + 4, imgH + 4).strokeColor("#E2E8F0").lineWidth(0.5).stroke();
-    doc.image(faceABuf, leftX + 2, startY + 2, { width: imgW, height: imgH });
-    doc.fontSize(FONT_CAPTION).fillColor(BILLBOARD_EYE.muted).text("Face A", leftX, startY + imgH + 8);
-  } else {
-    doc.rect(leftX, startY, imgW + 4, imgH + 4).strokeColor("#E2E8F0").lineWidth(0.5).stroke();
-    doc.fontSize(FONT_CAPTION).fillColor(BILLBOARD_EYE.muted).text("Face A — Aucune photo", leftX, startY + imgH / 2 - 6, { width: imgW + 4, align: "center" });
-  }
+  doc.fontSize(12).font("Helvetica-Bold").fillColor(theme.primary).text("FACE A", leftX, startY - 20, { width: halfW, align: "center" });
+  doc.fontSize(12).font("Helvetica-Bold").fillColor(theme.primary).text("FACE B", rightX, startY - 20, { width: halfW, align: "center" });
 
-  if (faceBBuf) {
-    doc.rect(rightX, startY, imgW + 4, imgH + 4).strokeColor("#E2E8F0").lineWidth(0.5).stroke();
-    doc.image(faceBBuf, rightX + 2, startY + 2, { width: imgW, height: imgH });
-    doc.fontSize(FONT_CAPTION).fillColor(BILLBOARD_EYE.muted).text("Face B", rightX, startY + imgH + 8);
-  } else {
-    doc.rect(rightX, startY, imgW + 4, imgH + 4).strokeColor("#E2E8F0").lineWidth(0.5).stroke();
-    doc.fontSize(FONT_CAPTION).fillColor(BILLBOARD_EYE.muted).text("Face B — Aucune photo", rightX, startY + imgH / 2 - 6, { width: imgW + 4, align: "center" });
-  }
+  const drawPhotoFrame = (x, buf, label) => {
+    doc.strokeColor(theme.accent).lineWidth(1.5).rect(x, startY, imgW + framePad * 2, imgH + framePad * 2).stroke();
+    if (buf) {
+      doc.image(buf, x + framePad, startY + framePad, { width: imgW, height: imgH });
+    } else {
+      doc.fillColor("#F1F5F9").rect(x + framePad, startY + framePad, imgW, imgH).fill();
+      doc.fontSize(FONT_CAPTION).fillColor(theme.muted).text(`[Insérer photo ${label} ici]`, x, startY + imgH / 2 + framePad - 6, { width: imgW + framePad * 2, align: "center" });
+    }
+  };
 
-  doc.y = startY + imgH + 28;
+  drawPhotoFrame(leftX, faceABuf, "Face A");
+  drawPhotoFrame(rightX, faceBBuf, "Face B");
+
+  doc.y = startY + imgH + framePad * 2 + 28;
+
+  doc.fontSize(10).font("Helvetica-Bold").fillColor(theme.primary).text("Observations / Notes - Face A :", leftX, doc.y);
+  doc.y += 14;
+  doc.strokeColor(theme.border).lineWidth(0.3).moveTo(leftX, doc.y).lineTo(leftX + halfW, doc.y).stroke();
+  doc.y += 12;
+  doc.strokeColor(theme.border).lineWidth(0.3).moveTo(leftX, doc.y).lineTo(leftX + halfW, doc.y).stroke();
+  doc.y += 12;
+  doc.strokeColor(theme.border).lineWidth(0.3).moveTo(leftX, doc.y).lineTo(leftX + halfW, doc.y).stroke();
+  if (observationsA) doc.fontSize(FONT_BODY).fillColor(theme.primary).text(observationsA, leftX, doc.y - 24, { width: halfW - 4 });
+
+  doc.y = startY + imgH + framePad * 2 + 28;
+  doc.fontSize(10).font("Helvetica-Bold").fillColor(theme.primary).text("Observations / Notes - Face B :", rightX, doc.y);
+  doc.y += 14;
+  doc.strokeColor(theme.border).lineWidth(0.3).moveTo(rightX, doc.y).lineTo(rightX + halfW, doc.y).stroke();
+  doc.y += 12;
+  doc.strokeColor(theme.border).lineWidth(0.3).moveTo(rightX, doc.y).lineTo(rightX + halfW, doc.y).stroke();
+  doc.y += 12;
+  doc.strokeColor(theme.border).lineWidth(0.3).moveTo(rightX, doc.y).lineTo(rightX + halfW, doc.y).stroke();
+  if (observationsB) doc.fontSize(FONT_BODY).fillColor(theme.primary).text(observationsB, rightX, doc.y - 24, { width: halfW - 4 });
+
+  doc.y = startY + imgH + framePad * 2 + 90;
 };
 
-const drawClosingPage = (doc, accentColor) => {
-  doc.y = PAGE_HEIGHT / 2 - 80;
-  doc.strokeColor(accentColor).lineWidth(2).moveTo(PAGE_WIDTH / 2 - 50, doc.y).lineTo(PAGE_WIDTH / 2 + 50, doc.y).stroke();
-  doc.y += 28;
-  doc.fillColor(BILLBOARD_EYE.primary).fontSize(FONT_SECTION).font("Helvetica-Bold").text(BILLBOARD_EYE.name.toUpperCase(), { width: PAGE_WIDTH, align: "center" });
-  doc.y += 28;
-  doc.fontSize(FONT_BODY).fillColor(BILLBOARD_EYE.muted).text(BILLBOARD_EYE.tagline, { width: PAGE_WIDTH, align: "center" });
-  doc.y += 16;
-  doc.fontSize(FONT_CAPTION).fillColor(BILLBOARD_EYE.muted).text(new Date().toLocaleDateString("fr-FR"), { width: PAGE_WIDTH, align: "center" });
-};
 
-const createPanneauPDFBuffer = async (rapport) => {
-  const { panneau, photos, isComplete } = rapport;
-  const faceABuf = photos?.faceA?.url ? await fetchImageAsBuffer(photos.faceA.url) : null;
-  const faceBBuf = photos?.faceB?.url ? await fetchImageAsBuffer(photos.faceB.url) : null;
-  const accentColor = BILLBOARD_EYE.accent;
+const createPanneauPDFBuffer = async (rapport, templateId = "1") => {
+  const { panneau, photos } = rapport;
+  const [faceABuf, faceBBuf] = await Promise.all([
+    photos?.faceA?.url ? fetchImageAsBuffer(photos.faceA.url) : null,
+    photos?.faceB?.url ? fetchImageAsBuffer(photos.faceB.url) : null,
+  ]);
+  const theme = getTemplate(templateId);
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 0, size: "A4" });
+    doc.info.Title = "Rapport Panneau - BillboardEye";
+    doc.info.Author = BILLBOARD_EYE.name;
+    doc.info.CreationDate = new Date();
     const chunks = [];
     doc.on("data", (chunk) => chunks.push(chunk));
     doc.on("error", reject);
     doc.on("end", () => resolve(Buffer.concat(chunks)));
 
-    drawCoverPage(doc, "Rapport Panneau", panneau.entreprise, accentColor);
-    addFooter(doc, 1, 2, accentColor);
+    drawCoverPage(doc, "Rapport Panneau", panneau.entreprise, theme, {}, "");
+    addFooter(doc, 1, 2, theme);
 
     doc.addPage({ margin: 0 });
-    doc.fillColor(BILLBOARD_EYE.primary).fontSize(FONT_CAPTION).text(BILLBOARD_EYE.name.toUpperCase(), 0, MARGIN_Y - 10, { width: PAGE_WIDTH, align: "center" });
-    doc.moveDown(0.5);
-    doc.fontSize(FONT_SECTION).font("Helvetica-Bold").fillColor(BILLBOARD_EYE.primary).text("Preuves visuelles", MARGIN_X, MARGIN_Y);
-    doc.moveDown(1);
-    doc.fontSize(FONT_BODY).fillColor(BILLBOARD_EYE.muted);
-    doc.text(`Adresse : ${panneau.localisation?.adresse || "Non renseignée"}`);
-    doc.text(`GPS : ${formatGps(panneau.localisation?.latitude, panneau.localisation?.longitude)}`);
-    doc.text(`Date : ${new Date(panneau.createdAt).toLocaleString("fr-FR")}`);
-    doc.text(`Statut : ${isComplete ? "Complet" : "Incomplet"}`);
-    doc.moveDown(1.2);
-
     const zoneName = panneau.localisation?.adresse || "Panneau";
-    drawPhotoPair(doc, faceABuf, faceBBuf, zoneName, formatGps(panneau.localisation?.latitude, panneau.localisation?.longitude), accentColor);
+    drawPhotoPair(doc, faceABuf, faceBBuf, zoneName, formatGps(panneau.localisation?.latitude, panneau.localisation?.longitude), theme, "", "");
 
-    addFooter(doc, 2, 2, accentColor);
+    addFooter(doc, 2, 2, theme);
     doc.end();
   });
 };
 
-const createProjetPDFBuffer = async (report) => {
+const createProjetPDFBuffer = async (report, templateId = "1") => {
   const { projet, panneaux, summary } = report;
-  const accentColor = projet.couleurPrincipale || BILLBOARD_EYE.accent;
+  const theme = getTemplate(templateId);
   const reportTitle = projet.titreRapport || projet.nom || "Rapport Campagne";
   const zones = String(projet.zone || "")
     .split(/[;,/|]/)
     .map((v) => v.trim())
     .filter(Boolean);
 
+  const [logoBuffers, imageBuffersMap, mapBuffer] = await Promise.all([
+    Promise.all([
+      projet.clientLogoUrl ? fetchImageAsBuffer(projet.clientLogoUrl) : null,
+      projet.entrepriseLogoUrl ? fetchImageAsBuffer(projet.entrepriseLogoUrl) : null,
+    ]),
+    Promise.all(
+      panneaux.map(async (p) => {
+        const [faceA, faceB] = await Promise.all([
+          p.photos?.faceA?.url ? fetchImageAsBuffer(p.photos.faceA.url) : null,
+          p.photos?.faceB?.url ? fetchImageAsBuffer(p.photos.faceB.url) : null,
+        ]);
+        return { id: p.id, faceA, faceB };
+      })
+    ),
+    fetchStaticMapBuffer(panneaux),
+  ]);
   const imageBuffers = {};
-  for (const p of panneaux) {
-    const bufs = {};
-    if (p.photos?.faceA?.url) bufs.faceA = await fetchImageAsBuffer(p.photos.faceA.url);
-    if (p.photos?.faceB?.url) bufs.faceB = await fetchImageAsBuffer(p.photos.faceB.url);
-    imageBuffers[p.id] = bufs;
+  for (const item of imageBuffersMap) {
+    imageBuffers[item.id] = { faceA: item.faceA, faceB: item.faceB };
   }
-  const mapBuffer = await fetchStaticMapBuffer(panneaux);
+  const logos = {
+    client: logoBuffers[0] || null,
+    entreprise: logoBuffers[1] || null,
+  };
 
-  const totalPages = 3 + panneaux.length;
+  const totalPages = 2 + panneaux.length;
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 0, size: "A4" });
+    doc.info.Title = reportTitle;
+    doc.info.Author = BILLBOARD_EYE.name;
+    doc.info.CreationDate = new Date();
+    doc.info.Subject = `Rapport campagne ${projet.entreprise}`;
     const chunks = [];
     let pageNum = 1;
     doc.on("data", (chunk) => chunks.push(chunk));
     doc.on("error", reject);
     doc.on("end", () => resolve(Buffer.concat(chunks)));
 
-    // 1. Cover
-    drawCoverPage(doc, reportTitle, projet.entreprise, accentColor);
-    addFooter(doc, pageNum++, totalPages, accentColor);
+    // 1. Couverture
+    drawCoverPage(doc, reportTitle, projet.entreprise, theme, logos, projet.duree || "");
+    addFooter(doc, pageNum++, totalPages, theme);
 
-    // 2. Stats + map
+    // 2. Résultats terrain
     doc.addPage({ margin: 0 });
-    doc.fontSize(FONT_CAPTION).fillColor(BILLBOARD_EYE.muted).text(BILLBOARD_EYE.name.toUpperCase(), 0, MARGIN_Y - 10, { width: PAGE_WIDTH, align: "center" });
-    doc.moveDown(0.5);
-    drawStatsPage(doc, projet, summary, zones, mapBuffer, accentColor);
-    addFooter(doc, pageNum++, totalPages, accentColor);
+    drawStatsPage(doc, projet, summary, zones, mapBuffer, theme);
+    addFooter(doc, pageNum++, totalPages, theme);
 
-    // 3. Photos — 1 panneau par page
+    // 3+. Panneaux — 1 page par panneau
     panneaux.forEach((panneau, index) => {
       doc.addPage({ margin: 0 });
-      doc.fontSize(FONT_CAPTION).fillColor(BILLBOARD_EYE.muted).text(BILLBOARD_EYE.name.toUpperCase(), 0, MARGIN_Y - 10, { width: PAGE_WIDTH, align: "center" });
-      doc.moveDown(0.5);
-      doc.y = MARGIN_Y;
-
       const zoneName = panneau.localisation?.adresse || `Zone ${index + 1}`;
       const bufs = imageBuffers[panneau.id] || {};
+      const obsA = panneau.observationsFaceA || "";
+      const obsB = panneau.observationsFaceB || "";
       drawPhotoPair(
         doc,
         bufs.faceA,
         bufs.faceB,
         `${index + 1}. ${zoneName}`,
         formatGps(panneau.localisation?.latitude, panneau.localisation?.longitude),
-        accentColor
+        theme,
+        obsA,
+        obsB
       );
-      addFooter(doc, pageNum++, totalPages, accentColor);
+      addFooter(doc, pageNum++, totalPages, theme);
     });
-
-    // 4. Closing
-    doc.addPage({ margin: 0 });
-    drawClosingPage(doc, accentColor);
-    addFooter(doc, pageNum, totalPages, accentColor);
 
     doc.end();
   });
@@ -343,9 +431,10 @@ const generatePanneauPDF = async (rapport) => {
   return { buffer, fileName, url };
 };
 
-const generateProjetPDF = async (report) => {
+const generateProjetPDF = async (report, options = {}) => {
+  const templateId = options.template || "1";
   const fileName = buildPdfFileName("projet", report.projet.id);
-  const buffer = await createProjetPDFBuffer(report);
+  const buffer = await createProjetPDFBuffer(report, templateId);
   const url = await uploadPDFToSupabase(buffer, fileName);
   return { buffer, fileName, url };
 };
@@ -375,4 +464,6 @@ module.exports = {
   generatePanneauPDF,
   generateProjetPDF,
   diagnosePhotoLoad,
+  REPORT_TEMPLATES,
+  getTemplate,
 };

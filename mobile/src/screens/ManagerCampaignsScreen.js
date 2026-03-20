@@ -53,7 +53,14 @@ export default function ManagerCampaignsScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Campagnes</Text>
-      {!!error && <Text style={styles.error}>{error}</Text>}
+      {!!error && (
+        <View style={styles.errorBlock}>
+          <Text style={styles.error}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadData} activeOpacity={0.85}>
+            <Text style={styles.retryText}>Réessayer</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       {loading ? (
         <ActivityIndicator size="large" color={theme.colors.accent} style={styles.loader} />
       ) : (
@@ -68,10 +75,10 @@ export default function ManagerCampaignsScreen({ navigation }) {
               activeOpacity={0.85}
             >
               <Text style={styles.name}>{item.nom}</Text>
-              <Text style={styles.meta}>Client: {item.entreprise}</Text>
-              <Text style={styles.meta}>Statut: {item.status}</Text>
+              <Text style={styles.meta}>Client : {item.entreprise}</Text>
+              <Text style={styles.meta}>Statut : {item.status}</Text>
               <Text style={styles.meta}>
-                Progression: {item.completed}/{item.total} ({item.progress}%)
+                Progression : {item.completed}/{item.total} ({item.progress}%)
               </Text>
             </TouchableOpacity>
           )}
@@ -84,18 +91,27 @@ export default function ManagerCampaignsScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing.md },
-  title: { fontSize: 22, fontWeight: "800", color: theme.colors.text, marginBottom: theme.spacing.md },
+  title: { fontSize: 24, fontWeight: "800", color: theme.colors.text, marginBottom: theme.spacing.lg },
   card: {
-    backgroundColor: theme.colors.primaryLight,
+    backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.lg,
-    padding: theme.spacing.md,
+    padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    ...theme.shadows.sm,
   },
   name: { color: theme.colors.text, fontWeight: "700", fontSize: 16, marginBottom: 6 },
   meta: { color: theme.colors.textSecondary, marginBottom: 2, fontSize: 14 },
   empty: { color: theme.colors.textMuted, marginTop: theme.spacing.lg },
-  error: { color: theme.colors.error, marginBottom: theme.spacing.md, fontSize: 14 },
+  errorBlock: { marginBottom: theme.spacing.md },
+  error: { color: theme.colors.error, marginBottom: theme.spacing.sm, fontSize: 14 },
+  retryButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: theme.radius.md,
+    borderWidth: 2,
+    borderColor: theme.colors.accent,
+  },
+  retryText: { color: theme.colors.accent, fontWeight: "600", fontSize: 14 },
   loader: { marginTop: 48 },
 });

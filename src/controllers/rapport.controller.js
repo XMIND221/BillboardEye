@@ -1,12 +1,13 @@
 const { getPanneauReport, getProjetReport } = require("../services/rapport.service");
-const { generatePanneauPDF, generateProjetPDF, diagnosePhotoLoad } = require("../services/pdf.service");
+const { generatePanneauPDF, generateProjetPDF, diagnosePhotoLoad, REPORT_TEMPLATES } = require("../services/pdf.service");
 
 const getPanneauReportHandler = async (req, res) => {
   let report;
 
   try {
     report = await getPanneauReport(req.params.id);
-  } catch (_error) {
+  } catch (error) {
+    console.error("[rapport] getPanneauReport error:", error?.message || error);
     return res.status(500).json({
       success: false,
       message: "Erreur interne lors de la generation du rapport.",
@@ -63,7 +64,8 @@ const getPanneauReportPDFUrlHandler = async (req, res) => {
 
   try {
     report = await getPanneauReport(req.params.id);
-  } catch (_error) {
+  } catch (error) {
+    console.error("[rapport] getPanneauReport PDF-URL error:", error?.message || error);
     return res.status(500).json({
       success: false,
       message: "Erreur interne lors de la generation du lien PDF.",
@@ -85,7 +87,8 @@ const getPanneauReportPDFUrlHandler = async (req, res) => {
         url,
       },
     });
-  } catch (_error) {
+  } catch (error) {
+    console.error("[rapport] generatePanneauPDF URL error:", error?.message || error);
     return res.status(500).json({
       success: false,
       message: "Erreur interne lors de l'upload du PDF.",
@@ -147,7 +150,8 @@ const getProjetReportPDFUrlHandler = async (req, res) => {
 
   try {
     report = await getProjetReport(req.params.id);
-  } catch (_error) {
+  } catch (error) {
+    console.error("[rapport] getProjetReport PDF-URL error:", error?.message || error);
     return res.status(500).json({
       success: false,
       message: "Erreur interne lors de la generation PDF campagne.",
@@ -162,7 +166,8 @@ const getProjetReportPDFUrlHandler = async (req, res) => {
   }
 
   try {
-    const { url } = await generateProjetPDF(report);
+    const templateId = req.query.template || "1";
+    const { url } = await generateProjetPDF(report, { template: templateId });
     const data = { url };
     if (req.query.debug === "1") {
       data.photoLoadResults = await diagnosePhotoLoad(report);
@@ -171,12 +176,53 @@ const getProjetReportPDFUrlHandler = async (req, res) => {
       success: true,
       data,
     });
-  } catch (_error) {
+  } catch (error) {
+    console.error("[rapport] generateProjetPDF URL error:", error?.message || error);
     return res.status(500).json({
       success: false,
       message: "Erreur interne lors de l'upload du PDF campagne.",
     });
   }
+};
+
+const getProjetReportPDFHandler = async (req, res) => {
+  let report;
+
+  try {
+    report = await getProjetReport(req.params.id);
+  } catch (error) {
+    console.error("[rapport] getProjetReport PDF error:", error?.message || error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur interne lors de la generation du rapport PDF campagne.",
+    });
+  }
+
+  if (!report) {
+    return res.status(404).json({
+      success: false,
+      message: "Campagne introuvable.",
+    });
+  }
+
+  try {
+    const templateId = req.query.template || "1";
+    const { buffer, fileName } = await generateProjetPDF(report, { template: templateId });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename=${fileName}`);
+    return res.status(200).send(buffer);
+  } catch (error) {
+    console.error("[rapport] generateProjetPDF error:", error?.message || error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur interne lors de la generation/upload du rapport PDF campagne.",
+    });
+  }
+};
+
+const getTemplatesHandler = (req, res) => {
+  const templates = Object.values(REPORT_TEMPLATES).map((t) => ({ id: t.id, name: t.name, primary: t.primary, accent: t.accent, boxBg: t.boxBg }));
+  return res.status(200).json({ success: true, data: templates });
 };
 
 module.exports = {
@@ -186,4 +232,6 @@ module.exports = {
   getProjetReportHandler,
   getProjetReportDebugHandler,
   getProjetReportPDFUrlHandler,
+  getProjetReportPDFHandler,
+  getTemplatesHandler,
 };

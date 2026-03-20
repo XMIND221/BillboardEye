@@ -77,24 +77,30 @@ export default function ProjetDetailPage() {
       const zip = new JSZip();
       const photosFolder = zip.folder(`projet-${projet.id}-photos`);
 
-      for (const panneau of panneaux) {
-        const rapport = await getRapport(panneau.id);
-        const photos = [
-          { label: "faceA", url: rapport?.photos?.faceA?.url },
-          { label: "faceB", url: rapport?.photos?.faceB?.url },
+      const rapports = await Promise.all(panneaux.map((p) => getRapport(p.id)));
+      const photoEntries = rapports.flatMap((rapport, i) => {
+        const panneau = panneaux[i];
+        return [
+          { panneauId: panneau.id, label: "faceA", url: rapport?.photos?.faceA?.url },
+          { panneauId: panneau.id, label: "faceB", url: rapport?.photos?.faceB?.url },
         ].filter((item) => Boolean(item.url));
+      });
 
-        for (const photo of photos) {
-          const response = await fetch(photo.url);
-          const blob = await response.blob();
-          photosFolder.file(`${panneau.id}-${photo.label}.jpg`, blob);
-        }
+      const blobs = await Promise.all(
+        photoEntries.map(async (entry) => {
+          const response = await fetch(entry.url);
+          return { ...entry, blob: await response.blob() };
+        })
+      );
+
+      for (const { panneauId, label, blob } of blobs) {
+        photosFolder.file(`${panneauId}-${label}.jpg`, blob);
       }
 
       const zipBlob = await zip.generateAsync({ type: "blob" });
       saveAs(zipBlob, `projet-${projet.id}-photos.zip`);
     } catch (_error) {
-      setError("Impossible de telecharger les photos du projet.");
+      setError("Impossible de télécharger les photos du projet.");
     } finally {
       setExportingZip(false);
     }
@@ -128,7 +134,7 @@ export default function ProjetDetailPage() {
             <strong>Entreprise:</strong> {projet.entreprise}
           </p>
           <p>
-            <strong>Zone:</strong> {projet.zone || "Non renseignee"}
+            <strong>Zone:</strong> {projet.zone || "Non renseignée"}
           </p>
           <p>
             <strong>Date:</strong> {projet.date ? new Date(projet.date).toLocaleDateString("fr-FR") : "N/A"}
@@ -142,7 +148,7 @@ export default function ProjetDetailPage() {
             {exportingPdf ? "Export PDF..." : "Exporter PDF projet"}
           </button>
           <button className="btn btn-secondary" onClick={exportProjetPhotosZip} disabled={exportingZip}>
-            {exportingZip ? "Export ZIP..." : "Telecharger photos"}
+            {exportingZip ? "Export ZIP..." : "Télécharger photos"}
           </button>
           <Link to="/" className="btn btn-secondary">
             Retour
@@ -166,7 +172,7 @@ export default function ProjetDetailPage() {
                   </span>
                 </div>
                 <Link className="btn" to={`/panneaux/${panneau.id}`}>
-                  Voir detail
+                  Voir détail
                 </Link>
               </article>
             ))}

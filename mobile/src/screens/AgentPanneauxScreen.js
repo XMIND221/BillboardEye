@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, RefreshControl } from "react-native";
 import { theme } from "../theme";
 import PanelCard from "../components/PanelCard";
 import { getAllOfflineData } from "../services/offlineStorage";
-import { getRapport } from "../services/api";
+import { getRapport, getProjets } from "../services/api";
 
 const enrichWithPhotos = async (panneau) => {
   if (panneau.photos?.faceA?.url || panneau.photos?.faceB?.url) return panneau;
@@ -21,10 +21,14 @@ const enrichWithPhotos = async (panneau) => {
 
 export default function AgentPanneauxScreen({ navigation }) {
   const [panneaux, setPanneaux] = useState([]);
+  const [projetsById, setProjetsById] = useState({});
   const [refreshing, setRefreshing] = useState(false);
 
   const loadPanneaux = useCallback(async () => {
-    const stored = await getAllOfflineData();
+    const [stored, projets] = await Promise.all([getAllOfflineData(), getProjets().catch(() => [])]);
+    const map = {};
+    (projets || []).forEach((p) => { map[p.id] = p.nom; });
+    setProjetsById(map);
     let tracked = stored.panneaux
       .map((item) => ({
         id: item.serverId || item.localId,
@@ -62,8 +66,9 @@ export default function AgentPanneauxScreen({ navigation }) {
       <FlatList
         data={panneaux}
         keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.accent} />}
-        renderItem={({ item }) => <PanelCard panneau={item} />}
+        renderItem={({ item }) => <PanelCard panneau={item} projetNom={projetsById[item.projetId]} />}
         ListEmptyComponent={<Text style={styles.empty}>Aucun panneau validé pour le moment.</Text>}
       />
     </View>
@@ -71,8 +76,9 @@ export default function AgentPanneauxScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing.md },
-  title: { fontSize: 22, fontWeight: "800", color: theme.colors.text },
-  subtitle: { marginTop: 4, marginBottom: theme.spacing.md, color: theme.colors.textSecondary, fontSize: 14 },
-  empty: { color: theme.colors.textMuted, marginTop: theme.spacing.lg, textAlign: "center" },
+  container: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing.lg },
+  title: { fontSize: 24, fontWeight: "800", color: theme.colors.text },
+  subtitle: { marginTop: 4, marginBottom: theme.spacing.lg, color: theme.colors.textSecondary, fontSize: 14 },
+  list: { paddingBottom: theme.spacing.xxl },
+  empty: { color: theme.colors.textMuted, marginTop: theme.spacing.xl, textAlign: "center", fontSize: 15 },
 });

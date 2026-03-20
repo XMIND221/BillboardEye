@@ -3,13 +3,14 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Share,
   Linking,
   ScrollView,
   Alert,
+  TouchableOpacity,
 } from "react-native";
 import { theme } from "../theme";
+import Button from "../components/Button";
 
 const parseZones = (zoneStr) =>
   String(zoneStr || "")
@@ -122,23 +123,29 @@ export default function ReportingPreviewScreen({ route, navigation }) {
         </View>
       )}
 
+      <TouchableOpacity
+        style={styles.templateLink}
+        onPress={() => navigation.navigate("ReportingTemplatePreview")}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.templateLinkText}>Voir le template du rapport</Text>
+      </TouchableOpacity>
+
       <View style={styles.actions}>
-        <TouchableOpacity
-          style={[styles.primaryButton, !pdfUrl && styles.buttonDisabled]}
+        <Button
+          title="Ouvrir / Télécharger PDF"
+          variant="primary"
           onPress={openPdf}
           disabled={!pdfUrl}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.primaryText}>Ouvrir / Télécharger PDF</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.secondaryButton, !pdfUrl && styles.buttonDisabled]}
+          style={[styles.primaryButton, !pdfUrl && styles.buttonDisabled]}
+        />
+        <Button
+          title="Partager"
+          variant="secondary"
           onPress={sharePdf}
           disabled={!pdfUrl}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.secondaryText}>Partager</Text>
-        </TouchableOpacity>
+          style={[styles.secondaryButton, !pdfUrl && styles.buttonDisabled]}
+        />
       </View>
     </ScrollView>
   );
@@ -168,7 +175,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: "800", color: theme.colors.text },
   subtitle: { fontSize: 15, color: theme.colors.textSecondary, marginTop: 4 },
   summaryCard: {
-    backgroundColor: theme.colors.primaryLight,
+    backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.lg,
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
@@ -189,7 +196,7 @@ const styles = StyleSheet.create({
   },
   errorText: { color: theme.colors.error, fontSize: 14 },
   detailsCard: {
-    backgroundColor: theme.colors.primaryLight,
+    backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.lg,
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.lg,
@@ -202,21 +209,15 @@ const styles = StyleSheet.create({
   zoneName: { color: theme.colors.text, fontSize: 14, fontWeight: "600" },
   zoneMeta: { flexDirection: "row", marginTop: 4, gap: 12 },
   zoneMetaItem: { color: theme.colors.textSecondary, fontSize: 12 },
+  templateLink: {
+    alignSelf: "flex-start",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: theme.spacing.md,
+  },
+  templateLinkText: { color: theme.colors.accent, fontWeight: "600", fontSize: 14 },
   actions: { gap: theme.spacing.md },
-  primaryButton: {
-    backgroundColor: theme.colors.accent,
-    borderRadius: theme.radius.lg,
-    paddingVertical: 18,
-    alignItems: "center",
-  },
-  secondaryButton: {
-    borderWidth: 1,
-    borderColor: theme.colors.accent,
-    borderRadius: theme.radius.lg,
-    paddingVertical: 18,
-    alignItems: "center",
-  },
+  primaryButton: {},
+  secondaryButton: {},
   buttonDisabled: { opacity: 0.5 },
-  primaryText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  secondaryText: { color: theme.colors.accent, fontWeight: "700", fontSize: 16 },
 });

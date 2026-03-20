@@ -67,7 +67,7 @@ export default function PanneauDetailPage() {
         <h1>{panneau.entreprise}</h1>
         <div className="actions">
           <a href={pdfUrl} target="_blank" rel="noreferrer" className="btn">
-            Telecharger PDF
+            Télécharger PDF
           </a>
           <Link to="/" className="btn btn-secondary">
             Retour
@@ -79,7 +79,7 @@ export default function PanneauDetailPage() {
         <article className="detail-card">
           <h2>Informations panneau</h2>
           <p>
-            <strong>Adresse:</strong> {panneau.localisation?.adresse || "Adresse non renseignee"}
+            <strong>Adresse:</strong> {panneau.localisation?.adresse || "Adresse non renseignée"}
           </p>
           <p>
             <strong>Latitude / Longitude:</strong> {panneau.localisation?.latitude} /{" "}

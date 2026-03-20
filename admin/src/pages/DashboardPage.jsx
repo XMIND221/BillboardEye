@@ -58,7 +58,7 @@ export default function DashboardPage() {
     loadData();
 
     const unsubscribeRealtime = subscribeDashboardRealtime(async () => {
-      setLiveBadge("Mise a jour en direct...");
+      setLiveBadge("Mise à jour en direct...");
       await loadData();
       setTimeout(() => setLiveBadge(""), 1400);
     });
@@ -176,7 +176,7 @@ export default function DashboardPage() {
               <div>
                 <h3>{project.nom}</h3>
                 <p>Entreprise: {project.entreprise}</p>
-                <p>Zone: {project.zone || "Non renseignee"}</p>
+                <p>Zone: {project.zone || "Non renseignée"}</p>
                 <p>
                   {project.complete}/{project.total} panneau(x) complet(s)
                 </p>

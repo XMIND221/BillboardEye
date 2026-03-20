@@ -5,13 +5,13 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
   ScrollView,
   Image,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { theme } from "../theme";
-import { createProjet } from "../services/api";
+import Button from "../components/Button";
+import { createProjet, uploadLogo } from "../services/api";
 import { saveSelectedProject } from "../services/projectStorage";
 import { saveCampaignConfig } from "../services/campaignConfigStorage";
 
@@ -97,7 +97,7 @@ export default function ManagerCreateCampaignScreen({ navigation }) {
 
       navigation.replace("ManagerCampaignDetail", { campaign: created });
     } catch (err) {
-      setError(err.message || "Creation impossible.");
+      setError(err.message || "Création impossible.");
     } finally {
       setLoading(false);
     }
@@ -105,7 +105,7 @@ export default function ManagerCreateCampaignScreen({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Creation campagne</Text>
+      <Text style={styles.title}>Création campagne</Text>
 
       <Text style={styles.label}>Client (nom)</Text>
       <TextInput style={styles.input} value={clientName} onChangeText={setClientName} placeholderTextColor={theme.colors.textMuted} />
@@ -178,9 +178,7 @@ export default function ManagerCreateCampaignScreen({ navigation }) {
       <Text style={styles.label}>Titre du rapport</Text>
       <TextInput style={styles.input} value={reportTitle} onChangeText={setReportTitle} placeholderTextColor={theme.colors.textMuted} />
 
-      <TouchableOpacity style={styles.primaryButton} onPress={onSubmit} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Créer campagne</Text>}
-      </TouchableOpacity>
+      <Button title="Créer campagne" variant="primary" onPress={onSubmit} loading={loading} disabled={loading} style={styles.primaryButton} />
       {!!error && <Text style={styles.error}>{error}</Text>}
     </ScrollView>
   );
@@ -192,12 +190,12 @@ const styles = StyleSheet.create({
   section: { marginTop: theme.spacing.lg, marginBottom: 6, fontWeight: "700", color: theme.colors.text },
   label: { fontWeight: "600", color: theme.colors.textSecondary, marginBottom: 6, marginTop: theme.spacing.sm },
   input: {
-    backgroundColor: theme.colors.primaryLight,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     marginBottom: 6,
     color: theme.colors.text,
   },
@@ -212,7 +210,7 @@ const styles = StyleSheet.create({
   addZoneText: { color: "#fff", fontWeight: "700" },
   zonesWrap: { flexDirection: "row", flexWrap: "wrap", marginTop: theme.spacing.sm, marginBottom: 4 },
   zoneChip: {
-    backgroundColor: "rgba(59, 130, 246, 0.2)",
+    backgroundColor: theme.colors.pastels.blue,
     borderRadius: theme.radius.full,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -221,14 +219,7 @@ const styles = StyleSheet.create({
   },
   zoneChipText: { color: theme.colors.accent, fontWeight: "700" },
   hint: { color: theme.colors.textMuted, marginBottom: 6 },
-  primaryButton: {
-    marginTop: theme.spacing.lg,
-    backgroundColor: theme.colors.accent,
-    borderRadius: theme.radius.lg,
-    alignItems: "center",
-    paddingVertical: 16,
-  },
-  primaryText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  primaryButton: { marginTop: theme.spacing.xl },
   secondaryButton: {
     borderWidth: 1,
     borderColor: theme.colors.accent,
