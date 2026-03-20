@@ -10,10 +10,10 @@ const formatSupabaseError = (context, error) => {
 const normalizePhoto = (row) => {
   return {
     id: row.id,
-    panneauId: row.panneauId,
+    panneauId: row.panneauId ?? row.panneau_id,
     type: row.type,
     url: row.url,
-    createdAt: row.createdAt,
+    createdAt: row.createdAt ?? row.created_at,
   };
 };
 
@@ -46,14 +46,30 @@ const uploadToSupabase = async (file) => {
   return data.publicUrl;
 };
 
+const { randomUUID } = require("crypto");
+
 const addPhoto = async (data) => {
-  const { data: existing, error: duplicateCheckError } = await supabase
+  const panneauId = data.panneauId;
+  const type = data.type;
+  const url = data.url;
+  const createdAt = data.createdAt ? new Date(data.createdAt).toISOString() : new Date().toISOString();
+
+  let existing = null;
+  let duplicateCheckError = null;
+  ({ data: existing, error: duplicateCheckError } = await supabase
     .from("photos")
     .select("id")
-    .eq("panneauId", data.panneauId)
-    .eq("type", data.type)
-    .maybeSingle();
-
+    .eq("panneau_id", panneauId)
+    .eq("type", type)
+    .maybeSingle());
+  if (duplicateCheckError) {
+    ({ data: existing, error: duplicateCheckError } = await supabase
+      .from("photos")
+      .select("id")
+      .eq("panneauId", panneauId)
+      .eq("type", type)
+      .maybeSingle());
+  }
   if (duplicateCheckError) {
     throw formatSupabaseError("addPhoto:duplicateCheck", duplicateCheckError);
   }
@@ -65,15 +81,12 @@ const addPhoto = async (data) => {
   }
 
   const payload = {
-    panneauId: data.panneauId,
-    type: data.type,
-    url: data.url,
-    createdAt: data.createdAt ? new Date(data.createdAt).toISOString() : new Date().toISOString(),
+    id: data.id || randomUUID(),
+    panneauId,
+    type,
+    url,
+    createdAt,
   };
-
-  if (data.id) {
-    payload.id = data.id;
-  }
 
   const { data: inserted, error } = await supabase.from("photos").insert(payload).select().single();
 
@@ -85,13 +98,17 @@ const addPhoto = async (data) => {
 };
 
 const getPhotosByPanneauId = async (panneauId) => {
-  const { data, error } = await supabase.from("photos").select("*").eq("panneauId", panneauId);
+  let result = await supabase.from("photos").select("*").eq("panneau_id", panneauId);
+  if (result.error) {
+    result = await supabase.from("photos").select("*").eq("panneauId", panneauId);
+  }
+  const { data, error } = result;
 
   if (error) {
     throw formatSupabaseError("getPhotosByPanneauId", error);
   }
 
-  return data.map(normalizePhoto);
+  return (data || []).map(normalizePhoto);
 };
 
 module.exports = {

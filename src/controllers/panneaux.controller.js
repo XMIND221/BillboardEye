@@ -5,7 +5,7 @@ const {
 } = require("../services/panneaux.service");
 
 const createPanneauHandler = async (req, res) => {
-  const { entreprise, latitude, longitude, adresse, nombreFaces, statut } = req.body;
+  const { entreprise, latitude, longitude, adresse, nombreFaces, statut, projetId, createdAt } = req.body;
 
   if (!entreprise) {
     return res.status(400).json({
@@ -36,13 +36,16 @@ const createPanneauHandler = async (req, res) => {
       adresse,
       nombreFaces,
       statut,
+      projetId,
+      createdAt,
     });
 
     return res.status(201).json({
       success: true,
       data: panneau,
     });
-  } catch (_error) {
+  } catch (error) {
+    console.error("[createPanneauHandler] Echec creation panneau:", error?.message || error);
     return res.status(500).json({
       success: false,
       message: "Erreur interne lors de la creation du panneau.",

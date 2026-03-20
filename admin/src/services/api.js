@@ -15,6 +15,21 @@ export const getPanneaux = async () => {
   return parseResponse(response);
 };
 
+export const getProjets = async () => {
+  const response = await fetch(`${API_BASE_URL}/projets`);
+  return parseResponse(response);
+};
+
+export const getProjetById = async (id) => {
+  const response = await fetch(`${API_BASE_URL}/projets/${id}`);
+  return parseResponse(response);
+};
+
+export const getPanneauxByProjet = async (projetId) => {
+  const panneaux = await getPanneaux();
+  return panneaux.filter((panneau) => panneau.projetId === projetId);
+};
+
 export const getPanneauById = async (id) => {
   const response = await fetch(`${API_BASE_URL}/panneaux/${id}`);
   return parseResponse(response);
@@ -25,6 +40,16 @@ export const getRapport = async (id) => {
   return parseResponse(response);
 };
 
+export const getRapportProjet = async (id) => {
+  const response = await fetch(`${API_BASE_URL}/rapport/projet/${id}`);
+  return parseResponse(response);
+};
+
 export const getPDF = (id) => {
   return `${API_BASE_URL}/rapport/panneau/${id}/pdf`;
+};
+
+export const getProjetPDFUrl = async (id) => {
+  const response = await fetch(`${API_BASE_URL}/rapport/projet/${id}/pdf-url`);
+  return parseResponse(response);
 };

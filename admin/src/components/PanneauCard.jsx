@@ -1,18 +1,25 @@
 import { Link } from "react-router-dom";
 
 const mapStatus = (statut) => {
-  return statut === "completed" ? "COMPLET" : "INCOMPLET";
+  if (statut === "completed") {
+    return "COMPLET";
+  }
+  if (statut === "pending") {
+    return "EN COURS";
+  }
+  return "INCOMPLET";
 };
 
-export default function PanneauCard({ panneau }) {
+export default function PanneauCard({ panneau, projetNom = "Sans projet" }) {
   const statusLabel = mapStatus(panneau.statut);
 
   return (
     <div className="card">
       <div>
         <h3>{panneau.entreprise}</h3>
+        <p>Projet: {projetNom}</p>
         <p>{panneau.localisation?.adresse || "Adresse non renseignee"}</p>
-        <span className={`status status-${statusLabel.toLowerCase()}`}>{statusLabel}</span>
+        <span className={`status status-${statusLabel.toLowerCase().replace(" ", "-")}`}>{statusLabel}</span>
       </div>
       <Link to={`/panneaux/${panneau.id}`} className="btn">
         Voir detail

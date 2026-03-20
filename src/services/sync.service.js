@@ -45,6 +45,7 @@ const syncData = async (data) => {
       await createPanneau({
         id: panneau.id,
         entreprise: panneau.entreprise,
+        projetId: panneau.projetId,
         localisation: {
           latitude: Number(latitude),
           longitude: Number(longitude),

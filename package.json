@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "diagnose-pdf": "node scripts/diagnose-pdf.js",
     "mobile:start": "npm --prefix mobile run start",
     "android": "npm --prefix mobile run android",
     "ios": "npm --prefix mobile run ios",
@@ -22,6 +23,8 @@
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "multer": "^2.1.1",
+    "node-cron": "^4.2.1",
+    "node-fetch": "^2.7.0",
     "pdfkit": "^0.18.0"
   },
   "devDependencies": {

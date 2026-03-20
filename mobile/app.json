@@ -4,11 +4,24 @@
     "slug": "billboardeye-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
+    "ios": {
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
+    },
     "android": {
-      "package": "com.billboardeye.mobile"
+      "package": "com.billboardeye.mobile",
+      "usesCleartextTraffic": true
     },
     "plugins": [
       "expo-asset"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c9cbd8e8-29e7-40b7-8785-9d4b49d551fa"
+      }
+    }
   }
 }

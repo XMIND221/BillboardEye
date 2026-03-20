@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Loader from "../components/Loader";
 import ErrorState from "../components/ErrorState";
-import { getPanneauById, getPDF, getRapport } from "../services/api";
+import { getPanneauById, getPDF, getProjetById, getRapport } from "../services/api";
 
 const formatDate = (value) => {
   if (!value) {
@@ -15,6 +15,7 @@ const formatDate = (value) => {
 export default function PanneauDetailPage() {
   const { id } = useParams();
   const [panneau, setPanneau] = useState(null);
+  const [projet, setProjet] = useState(null);
   const [rapport, setRapport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -25,7 +26,9 @@ export default function PanneauDetailPage() {
         setLoading(true);
         setError("");
         const [panneauData, rapportData] = await Promise.all([getPanneauById(id), getRapport(id)]);
+        const projetData = panneauData?.projetId ? await getProjetById(panneauData.projetId) : null;
         setPanneau(panneauData);
+        setProjet(projetData);
         setRapport(rapportData);
       } catch (err) {
         setError(err.message);
@@ -84,6 +87,9 @@ export default function PanneauDetailPage() {
           </p>
           <p>
             <strong>Date:</strong> {formatDate(panneau.createdAt)}
+          </p>
+          <p>
+            <strong>Projet:</strong> {projet?.nom || "Sans projet"}
           </p>
           <p>
             <strong>Statut rapport:</strong> {rapport.isComplete ? "COMPLET" : "INCOMPLET"}

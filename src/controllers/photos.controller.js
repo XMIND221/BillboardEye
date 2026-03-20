@@ -62,6 +62,7 @@ const addPhotoHandler = async (req, res) => {
       data: photo,
     });
   } catch (error) {
+    console.error("[addPhotoHandler] Echec:", error?.message || error, error?.details || "");
     if (
       error.code === "SUPABASE_STORAGE_UPLOAD_ERROR" ||
       error.code === "SUPABASE_STORAGE_PUBLIC_URL_ERROR"

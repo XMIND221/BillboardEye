@@ -9,6 +9,27 @@ L.Icon.Default.mergeOptions({
 
 const DEFAULT_CENTER = [14.7167, -17.4677];
 
+const getMapStatus = (statut) => {
+  if (statut === "completed") {
+    return "COMPLET";
+  }
+  if (statut === "pending") {
+    return "EN_COURS";
+  }
+  return "INCOMPLET";
+};
+
+const markerIcon = (status) => {
+  const color = status === "COMPLET" ? "#16a34a" : status === "EN_COURS" ? "#f59e0b" : "#dc2626";
+
+  return L.divIcon({
+    className: "custom-marker",
+    html: `<span style="background:${color};"></span>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  });
+};
+
 export default function PanneauxMap({ panneaux }) {
   const points = panneaux
     .map((panneau) => ({
@@ -17,6 +38,7 @@ export default function PanneauxMap({ panneaux }) {
       adresse: panneau.localisation?.adresse || "Adresse non renseignee",
       latitude: Number(panneau.localisation?.latitude),
       longitude: Number(panneau.localisation?.longitude),
+      status: getMapStatus(panneau.statut),
     }))
     .filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude));
 
@@ -30,11 +52,17 @@ export default function PanneauxMap({ panneaux }) {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {points.map((point) => (
-          <Marker key={point.id} position={[point.latitude, point.longitude]}>
+          <Marker key={point.id} position={[point.latitude, point.longitude]} icon={markerIcon(point.status)}>
             <Popup>
               <strong>{point.entreprise}</strong>
               <br />
               {point.adresse}
+              <br />
+              Statut: {point.status === "EN_COURS" ? "EN COURS" : point.status}
+              <br />
+              <a href={`/panneaux/${point.id}`} className="popup-link">
+                Voir detail
+              </a>
             </Popup>
           </Marker>
         ))}

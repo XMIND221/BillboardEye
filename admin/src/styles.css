@@ -1,7 +1,7 @@
 :root {
   font-family: Arial, sans-serif;
   color: #111827;
-  background: #f4f6f8;
+  background: #f8f9fb;
 }
 
 * {
@@ -18,6 +18,31 @@ body {
   padding: 24px 16px;
 }
 
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.stat-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.stat-card p {
+  margin: 0;
+  color: #4b5563;
+}
+
+.stat-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 24px;
+}
+
 .header h1,
 .detail-header h1 {
   margin: 0;
@@ -29,7 +54,7 @@ body {
 
 .filters {
   display: grid;
-  grid-template-columns: 1fr 220px;
+  grid-template-columns: 1fr 220px 220px;
   gap: 12px;
   margin: 16px 0;
 }
@@ -44,7 +69,7 @@ body {
 
 .map-wrapper {
   height: 320px;
-  border-radius: 12px;
+  border-radius: 16px;
   overflow: hidden;
   border: 1px solid #e5e7eb;
   background: #fff;
@@ -54,10 +79,102 @@ body {
   margin-top: 18px;
 }
 
+.project-summary-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.project-summary-card h3 {
+  margin: 0 0 6px;
+}
+
+.project-summary-card p {
+  margin: 0 0 4px;
+  color: #4b5563;
+}
+
+.project-summary-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.project-indicator {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.indicator-green {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.indicator-orange {
+  color: #92400e;
+  background: #ffedd5;
+}
+
+.indicator-red {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.progress-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.progress-track {
+  width: 180px;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-track span {
+  display: block;
+  height: 100%;
+  background: #2563eb;
+}
+
+.project-group {
+  margin-bottom: 18px;
+}
+
+.project-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.project-group-header h3 {
+  margin: 0;
+}
+
+.project-group-header p {
+  margin: 4px 0 0;
+  color: #4b5563;
+}
+
 .card {
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border-radius: 16px;
   padding: 14px;
   margin-bottom: 10px;
   display: flex;
@@ -112,6 +229,11 @@ body {
   color: #991b1b;
 }
 
+.status-en-cours {
+  background: #ffedd5;
+  color: #92400e;
+}
+
 .state-text {
   color: #4b5563;
 }
@@ -139,10 +261,35 @@ body {
   gap: 12px;
 }
 
+.project-panel-list {
+  display: grid;
+  gap: 10px;
+}
+
+.project-panel-row {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.project-panel-row h3 {
+  margin: 0 0 6px;
+}
+
+.project-panel-row p {
+  margin: 0;
+  color: #4b5563;
+}
+
 .detail-card {
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border-radius: 16px;
   padding: 14px;
 }
 
@@ -158,12 +305,39 @@ body {
   width: 100%;
   max-height: 260px;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: 16px;
   border: 1px solid #e5e7eb;
+}
+
+.live-badge {
+  display: inline-block;
+  margin-top: 6px;
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.custom-marker span {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: block;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.popup-link {
+  display: inline-block;
+  margin-top: 6px;
+  color: #2563eb;
+  text-decoration: underline;
 }
 
 @media (max-width: 800px) {
   .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
     grid-template-columns: 1fr;
   }
 
@@ -174,5 +348,15 @@ body {
 
   .detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .project-summary-card,
+  .project-panel-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .project-summary-actions {
+    align-items: flex-start;
   }
 }
