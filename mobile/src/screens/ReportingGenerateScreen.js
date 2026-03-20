@@ -10,16 +10,16 @@ import {
 } from "react-native";
 
 const REPORT_TEMPLATES = [
-  { id: "1", name: "Begué Neo", colors: ["#E0F2F1", "#2C7A7B", "#1A237E"], model: "center-card" },
-  { id: "2", name: "Corporate Grid", colors: ["#EFF6FF", "#2563EB", "#1E293B"], model: "left-banner" },
-  { id: "3", name: "Editorial", colors: ["#F5F3FF", "#7C3AED", "#3F3F46"], model: "split-hero" },
-  { id: "4", name: "Field Ops", colors: ["#FFF7ED", "#EA580C", "#111827"], model: "top-ribbon" },
-  { id: "5", name: "Precision Green", colors: ["#ECFDF5", "#059669", "#0F172A"], model: "center-card" },
-  { id: "6", name: "Night Pulse", colors: ["#1F2937", "#22D3EE", "#E5E7EB"], model: "left-banner" },
-  { id: "7", name: "Ivory Premium", colors: ["#FFFBEB", "#DC2626", "#312E81"], model: "split-hero" },
-  { id: "8", name: "Urban Mint", colors: ["#F0FDFA", "#0EA5E9", "#134E4A"], model: "top-ribbon" },
-  { id: "9", name: "Bold Agency", colors: ["#FFF1F2", "#E11D48", "#18181B"], model: "left-banner" },
-  { id: "10", name: "Atlas Clean", colors: ["#F0F9FF", "#16A34A", "#0C4A6E"], model: "split-hero" },
+  { id: "1", name: "Begué Neo", colors: ["#E0F2F1", "#2C7A7B", "#1A237E"], model: "center-card", cover: "Center", stats: "Cards", panel: "Dual" },
+  { id: "2", name: "Corporate Grid", colors: ["#EFF6FF", "#2563EB", "#1E293B"], model: "left-banner", cover: "Banner", stats: "Table", panel: "Dual" },
+  { id: "3", name: "Editorial", colors: ["#F5F3FF", "#7C3AED", "#3F3F46"], model: "split-hero", cover: "Split", stats: "Sidebar", panel: "Stacked" },
+  { id: "4", name: "Field Ops", colors: ["#FFF7ED", "#EA580C", "#111827"], model: "top-ribbon", cover: "Ribbon", stats: "Cards", panel: "Hero" },
+  { id: "5", name: "Precision Green", colors: ["#ECFDF5", "#059669", "#0F172A"], model: "center-card", cover: "Center", stats: "Sidebar", panel: "Dual" },
+  { id: "6", name: "Night Pulse", colors: ["#1F2937", "#22D3EE", "#E5E7EB"], model: "left-banner", cover: "Banner", stats: "Cards", panel: "Stacked" },
+  { id: "7", name: "Ivory Premium", colors: ["#FFFBEB", "#DC2626", "#312E81"], model: "split-hero", cover: "Split", stats: "Table", panel: "Hero" },
+  { id: "8", name: "Urban Mint", colors: ["#F0FDFA", "#0EA5E9", "#134E4A"], model: "top-ribbon", cover: "Ribbon", stats: "Sidebar", panel: "Dual" },
+  { id: "9", name: "Bold Agency", colors: ["#FFF1F2", "#E11D48", "#18181B"], model: "left-banner", cover: "Banner", stats: "Cards", panel: "Hero" },
+  { id: "10", name: "Atlas Clean", colors: ["#F0F9FF", "#16A34A", "#0C4A6E"], model: "split-hero", cover: "Split", stats: "Table", panel: "Stacked" },
 ];
 
 function TemplateModelPreview({ tpl }) {
@@ -52,7 +52,7 @@ function TemplateModelPreview({ tpl }) {
     </View>
   );
 }
-import { getProjets, getProjetReport } from "../services/api";
+import { getProjets, getProjetPDFUrl, getProjetReport } from "../services/api";
 import { theme } from "../theme";
 import { getSelectedProject } from "../services/projectStorage";
 
@@ -71,6 +71,7 @@ export default function ReportingGenerateScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [loadingReport, setLoadingReport] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [generatingDirect, setGeneratingDirect] = useState(false);
   const [error, setError] = useState("");
 
   const loadCampaigns = async () => {
@@ -142,6 +143,25 @@ export default function ReportingGenerateScreen({ navigation, route }) {
     } catch (_err) {}
   };
 
+  const generateDirect = async () => {
+    if (!selectedCampaignId) return;
+    try {
+      setGeneratingDirect(true);
+      setError("");
+      const result = await getProjetPDFUrl(selectedCampaignId, selectedTemplateId);
+      navigation.navigate("ReportingPreview", {
+        campaign: selectedCampaign,
+        reportData,
+        pdfUrl: result?.url || "",
+        templateId: selectedTemplateId,
+      });
+    } catch (err) {
+      setError(err.message || "Génération PDF impossible.");
+    } finally {
+      setGeneratingDirect(false);
+    }
+  };
+
   const zones = parseZones(reportData?.projet?.zone);
   const total = reportData?.summary?.total ?? 0;
   const completed = reportData?.summary?.completed ?? 0;
@@ -184,6 +204,7 @@ export default function ReportingGenerateScreen({ navigation, route }) {
               </View>
               <TemplateModelPreview tpl={t} />
               <Text style={[styles.templateName, selected && styles.templateNameSelected]}>{t.name}</Text>
+              <Text style={styles.templateMeta}>{`C:${t.cover}  S:${t.stats}  P:${t.panel}`}</Text>
             </TouchableOpacity>
           );
         })}
@@ -287,14 +308,24 @@ export default function ReportingGenerateScreen({ navigation, route }) {
             </View>
           ) : null}
 
-          <TouchableOpacity
-            style={[styles.primaryButton, (!selectedCampaignId || !reportData) && styles.primaryButtonDisabled]}
-            onPress={prepareReport}
-            disabled={!selectedCampaignId || !reportData}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryText}>Éditer puis générer</Text>
-          </TouchableOpacity>
+          <View style={styles.actionsRow}>
+            <TouchableOpacity
+              style={[styles.secondaryActionButton, (!selectedCampaignId || !reportData) && styles.primaryButtonDisabled]}
+              onPress={prepareReport}
+              disabled={!selectedCampaignId || !reportData}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.secondaryActionText}>Éditer le rapport</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.primaryActionButton, (generatingDirect || !selectedCampaignId || !reportData) && styles.primaryButtonDisabled]}
+              onPress={generateDirect}
+              disabled={generatingDirect || !selectedCampaignId || !reportData}
+              activeOpacity={0.85}
+            >
+              {generatingDirect ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Générer directement</Text>}
+            </TouchableOpacity>
+          </View>
         </>
       )}
     </ScrollView>
@@ -331,6 +362,7 @@ const styles = StyleSheet.create({
   modelCenterLine: { position: "absolute", left: 20, right: 20, top: 24, height: 2 },
   templateName: { fontSize: 11, fontWeight: "700", color: theme.colors.text, textAlign: "center" },
   templateNameSelected: { color: theme.colors.accent },
+  templateMeta: { marginTop: 4, fontSize: 9, color: theme.colors.textMuted, textAlign: "center" },
   templatePreviewButton: {
     alignSelf: "flex-start",
     paddingVertical: 8,
@@ -422,6 +454,25 @@ const styles = StyleSheet.create({
   zonesLabel: { color: theme.colors.textSecondary, fontSize: 12, marginBottom: 6 },
   zoneItem: { color: theme.colors.text, fontSize: 13, marginBottom: 2 },
   zoneMore: { color: theme.colors.textMuted, fontSize: 12, marginTop: 4 },
-  primaryButton: { marginTop: theme.spacing.md },
+  actionsRow: { marginTop: theme.spacing.md, flexDirection: "row", gap: theme.spacing.sm },
+  primaryActionButton: {
+    flex: 1,
+    backgroundColor: theme.colors.accent,
+    paddingVertical: 14,
+    borderRadius: theme.radius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secondaryActionButton: {
+    flex: 1,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingVertical: 14,
+    borderRadius: theme.radius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secondaryActionText: { color: theme.colors.text, fontWeight: "700", fontSize: 14 },
   primaryButtonDisabled: { opacity: 0.6 },
 });

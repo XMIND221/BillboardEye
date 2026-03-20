@@ -17,6 +17,7 @@ export default function ReportingEditorScreen({ route, navigation }) {
   const [instructions, setInstructions] = useState(reportData?.projet?.instructions || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [visibleCount, setVisibleCount] = useState(20);
   const [panelOverrides, setPanelOverrides] = useState(
     (reportData?.panneaux || []).map((p) => ({
       id: p.id,
@@ -135,7 +136,7 @@ export default function ReportingEditorScreen({ route, navigation }) {
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Panneaux inclus ({enabledCount})</Text>
-        {panelOverrides.map((p) => (
+        {panelOverrides.slice(0, visibleCount).map((p) => (
           <View key={p.id} style={styles.panelRow}>
             <View style={styles.panelHeader}>
               <Text style={styles.panelLabel} numberOfLines={1}>{p.label}</Text>
@@ -183,6 +184,11 @@ export default function ReportingEditorScreen({ route, navigation }) {
             />
           </View>
         ))}
+        {visibleCount < panelOverrides.length && (
+          <TouchableOpacity style={styles.loadMoreButton} onPress={() => setVisibleCount((v) => v + 20)} activeOpacity={0.85}>
+            <Text style={styles.loadMoreText}>Afficher 20 panneaux de plus</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <TouchableOpacity style={[styles.primaryButton, saving && styles.primaryButtonDisabled]} onPress={onPreview} disabled={saving} activeOpacity={0.85}>
@@ -238,4 +244,13 @@ const styles = StyleSheet.create({
     borderColor: "rgba(239, 68, 68, 0.3)",
   },
   errorText: { color: theme.colors.error, fontSize: 14 },
+  loadMoreButton: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  loadMoreText: { color: theme.colors.textSecondary, fontWeight: "700" },
 });

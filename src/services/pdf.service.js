@@ -413,26 +413,13 @@ const createProjetPDFBuffer = async (report, templateId = "1") => {
     .map((v) => v.trim())
     .filter(Boolean);
 
-  const [logoBuffers, imageBuffersMap, mapBuffer] = await Promise.all([
+  const [logoBuffers, mapBuffer] = await Promise.all([
     Promise.all([
       projet.clientLogoUrl ? fetchImageAsBuffer(projet.clientLogoUrl) : null,
       projet.entrepriseLogoUrl ? fetchImageAsBuffer(projet.entrepriseLogoUrl) : null,
     ]),
-    Promise.all(
-      panneaux.map(async (p) => {
-        const [faceA, faceB] = await Promise.all([
-          p.photos?.faceA?.url ? fetchImageAsBuffer(p.photos.faceA.url) : null,
-          p.photos?.faceB?.url ? fetchImageAsBuffer(p.photos.faceB.url) : null,
-        ]);
-        return { id: p.id, faceA, faceB };
-      })
-    ),
     fetchStaticMapBuffer(panneaux),
   ]);
-  const imageBuffers = {};
-  for (const item of imageBuffersMap) {
-    imageBuffers[item.id] = { faceA: item.faceA, faceB: item.faceB };
-  }
   const logos = {
     client: logoBuffers[0] || null,
     entreprise: logoBuffers[1] || null,
@@ -452,36 +439,42 @@ const createProjetPDFBuffer = async (report, templateId = "1") => {
     doc.on("error", reject);
     doc.on("end", () => resolve(Buffer.concat(chunks)));
 
-    // 1. Couverture
-    drawCoverPage(doc, reportTitle, projet.entreprise, theme, logos, projet.duree || "");
-    addFooter(doc, pageNum++, totalPages, theme);
-
-    // 2. Résultats terrain
-    doc.addPage({ margin: 0 });
-    drawStatsPage(doc, projet, summary, zones, mapBuffer, theme);
-    addFooter(doc, pageNum++, totalPages, theme);
-
-    // 3+. Panneaux — 1 page par panneau
-    panneaux.forEach((panneau, index) => {
-      doc.addPage({ margin: 0 });
-      const zoneName = panneau.localisation?.adresse || `Zone ${index + 1}`;
-      const bufs = imageBuffers[panneau.id] || {};
-      const obsA = panneau.observationsFaceA || "";
-      const obsB = panneau.observationsFaceB || "";
-      drawPhotoPair(
-        doc,
-        bufs.faceA,
-        bufs.faceB,
-        `${index + 1}. ${zoneName}`,
-        formatGps(panneau.localisation?.latitude, panneau.localisation?.longitude),
-        theme,
-        obsA,
-        obsB
-      );
+    const render = async () => {
+      // 1. Couverture
+      drawCoverPage(doc, reportTitle, projet.entreprise, theme, logos, projet.duree || "");
       addFooter(doc, pageNum++, totalPages, theme);
-    });
 
-    doc.end();
+      // 2. Résultats terrain
+      doc.addPage({ margin: 0 });
+      drawStatsPage(doc, projet, summary, zones, mapBuffer, theme);
+      addFooter(doc, pageNum++, totalPages, theme);
+
+      // 3+. Panneaux — traitement progressif pour 100+ panneaux
+      for (let index = 0; index < panneaux.length; index += 1) {
+        const panneau = panneaux[index];
+        const [faceA, faceB] = await Promise.all([
+          panneau.photos?.faceA?.url ? fetchImageAsBuffer(panneau.photos.faceA.url) : null,
+          panneau.photos?.faceB?.url ? fetchImageAsBuffer(panneau.photos.faceB.url) : null,
+        ]);
+        doc.addPage({ margin: 0 });
+        const zoneName = panneau.localisation?.adresse || `Zone ${index + 1}`;
+        const obsA = panneau.observationsFaceA || "";
+        const obsB = panneau.observationsFaceB || "";
+        drawPhotoPair(
+          doc,
+          faceA,
+          faceB,
+          `${index + 1}. ${zoneName}`,
+          formatGps(panneau.localisation?.latitude, panneau.localisation?.longitude),
+          theme,
+          obsA,
+          obsB
+        );
+        addFooter(doc, pageNum++, totalPages, theme);
+      }
+    };
+
+    render().then(() => doc.end()).catch(reject);
   });
 };
 

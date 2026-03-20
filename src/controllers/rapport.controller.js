@@ -1,6 +1,69 @@
 const { getPanneauReport, getProjetReport } = require("../services/rapport.service");
 const { generatePanneauPDF, generateProjetPDF, diagnosePhotoLoad, REPORT_TEMPLATES } = require("../services/pdf.service");
 
+const MAX_PANELS_PER_REPORT = 500;
+const MAX_TEXT_LEN = 5000;
+
+const sanitizeText = (value, max = 255) => {
+  if (value == null) return undefined;
+  const text = String(value).trim();
+  if (!text) return "";
+  return text.slice(0, max);
+};
+
+const sanitizeLatitude = (value) => {
+  if (value == null || value === "") return undefined;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < -90 || n > 90) return null;
+  return n;
+};
+
+const sanitizeLongitude = (value) => {
+  if (value == null || value === "") return undefined;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < -180 || n > 180) return null;
+  return n;
+};
+
+const sanitizeTemplateId = (value) => {
+  const candidate = String(value || "1");
+  return REPORT_TEMPLATES[candidate] ? candidate : "1";
+};
+
+const sanitizeOverrides = (overrides = {}) => {
+  const safe = {
+    titreRapport: sanitizeText(overrides.titreRapport, 180),
+    entreprise: sanitizeText(overrides.entreprise, 180),
+    duree: sanitizeText(overrides.duree, 120),
+    instructions: sanitizeText(overrides.instructions, MAX_TEXT_LEN),
+    zone: sanitizeText(overrides.zone, 2000),
+    assignedAgent: sanitizeText(overrides.assignedAgent, 180),
+    date: sanitizeText(overrides.date, 30),
+    panneaux: [],
+  };
+
+  const panneauxInput = Array.isArray(overrides.panneaux) ? overrides.panneaux.slice(0, MAX_PANELS_PER_REPORT) : [];
+  safe.panneaux = panneauxInput.map((p, idx) => ({
+    id: sanitizeText(p?.id, 120),
+    enabled: p?.enabled !== false,
+    order: Number.isFinite(Number(p?.order)) ? Number(p.order) : idx,
+    zoneName: sanitizeText(p?.zoneName, 220),
+    latitude: sanitizeLatitude(p?.latitude),
+    longitude: sanitizeLongitude(p?.longitude),
+    observationsFaceA: sanitizeText(p?.observationsFaceA, 1000),
+    observationsFaceB: sanitizeText(p?.observationsFaceB, 1000),
+  }));
+
+  const invalidCoord = safe.panneaux.some((p) => p.latitude === null || p.longitude === null);
+  if (invalidCoord) {
+    const err = new Error("Coordonnées GPS invalides dans les modifications.");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  return safe;
+};
+
 const getPanneauReportHandler = async (req, res) => {
   let report;
 
@@ -219,7 +282,7 @@ const getProjetReportPDFUrlHandler = async (req, res) => {
   }
 
   try {
-    const templateId = req.query.template || "1";
+    const templateId = sanitizeTemplateId(req.query.template);
     const { url } = await generateProjetPDF(report, { template: templateId });
     const data = { url };
     if (req.query.debug === "1") {
@@ -259,7 +322,7 @@ const getProjetReportPDFHandler = async (req, res) => {
   }
 
   try {
-    const templateId = req.query.template || "1";
+    const templateId = sanitizeTemplateId(req.query.template);
     const { buffer, fileName } = await generateProjetPDF(report, { template: templateId });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename=${fileName}`);
@@ -284,15 +347,16 @@ const previewProjetReportPDFHandler = async (req, res) => {
     return res.status(404).json({ success: false, message: "Campagne introuvable." });
   }
   try {
-    const templateId = req.body?.templateId || "1";
-    const overrides = req.body?.overrides || {};
+    const templateId = sanitizeTemplateId(req.body?.templateId);
+    const overrides = sanitizeOverrides(req.body?.overrides || {});
     const reportWithOverrides = applyProjetOverrides(report, overrides);
     const suffix = `preview-${Date.now()}`;
     const { url } = await generateProjetPDF(reportWithOverrides, { template: templateId, suffix });
     return res.status(200).json({ success: true, data: { url } });
   } catch (error) {
+    const statusCode = Number.isInteger(error?.statusCode) ? error.statusCode : 500;
     console.error("[rapport] previewProjetReportPDFHandler error:", error?.message || error);
-    return res.status(500).json({ success: false, message: "Erreur lors de la génération de l'aperçu PDF." });
+    return res.status(statusCode).json({ success: false, message: statusCode === 400 ? error.message : "Erreur lors de la génération de l'aperçu PDF." });
   }
 };
 
@@ -307,14 +371,15 @@ const generateProjetReportFinalPDFHandler = async (req, res) => {
     return res.status(404).json({ success: false, message: "Campagne introuvable." });
   }
   try {
-    const templateId = req.body?.templateId || "1";
-    const overrides = req.body?.overrides || {};
+    const templateId = sanitizeTemplateId(req.body?.templateId);
+    const overrides = sanitizeOverrides(req.body?.overrides || {});
     const reportWithOverrides = applyProjetOverrides(report, overrides);
     const { url } = await generateProjetPDF(reportWithOverrides, { template: templateId });
     return res.status(200).json({ success: true, data: { url } });
   } catch (error) {
+    const statusCode = Number.isInteger(error?.statusCode) ? error.statusCode : 500;
     console.error("[rapport] generateProjetReportFinalPDFHandler error:", error?.message || error);
-    return res.status(500).json({ success: false, message: "Erreur lors de la génération du PDF final." });
+    return res.status(statusCode).json({ success: false, message: statusCode === 400 ? error.message : "Erreur lors de la génération du PDF final." });
   }
 };
 
