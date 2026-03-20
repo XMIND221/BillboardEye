@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { theme } from "../theme";
 import Button from "../components/Button";
+import { generateProjetPDFFinal } from "../services/api";
 
 const parseZones = (zoneStr) =>
   String(zoneStr || "")
@@ -22,6 +23,8 @@ export default function ReportingPreviewScreen({ route, navigation }) {
   const campaign = route.params?.campaign;
   const reportData = route.params?.reportData;
   const pdfUrl = route.params?.pdfUrl || "";
+  const editorPayload = route.params?.editorPayload || null;
+  const [finalizing, setFinalizing] = React.useState(false);
   const zones = parseZones(reportData?.projet?.zone);
   const total = reportData?.summary?.total ?? 0;
   const completed = reportData?.summary?.completed ?? 0;
@@ -54,6 +57,20 @@ export default function ReportingPreviewScreen({ route, navigation }) {
       if (err.message !== "User did not share") {
         Alert.alert("Erreur", "Impossible de partager le PDF.");
       }
+    }
+  };
+
+  const generateFinal = async () => {
+    if (!campaign?.id || !editorPayload) return;
+    try {
+      setFinalizing(true);
+      const result = await generateProjetPDFFinal(campaign.id, editorPayload);
+      navigation.setParams({ pdfUrl: result?.url || "" });
+      Alert.alert("PDF final prêt", "La version finale a été générée.");
+    } catch (err) {
+      Alert.alert("Erreur", err.message || "Impossible de générer la version finale.");
+    } finally {
+      setFinalizing(false);
     }
   };
 
@@ -132,6 +149,15 @@ export default function ReportingPreviewScreen({ route, navigation }) {
       </TouchableOpacity>
 
       <View style={styles.actions}>
+        {editorPayload ? (
+          <Button
+            title={finalizing ? "Génération finale..." : "Valider et générer final"}
+            variant="primary"
+            onPress={generateFinal}
+            disabled={finalizing}
+            style={styles.primaryButton}
+          />
+        ) : null}
         <Button
           title="Ouvrir / Télécharger PDF"
           variant="primary"

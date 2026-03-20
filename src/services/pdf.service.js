@@ -17,13 +17,18 @@ const BILLBOARD_EYE = {
   tagline: "Rapport premium généré par BillboardEye",
 };
 
-// 5 templates de rapport — palettes distinctes
+// 10 templates de rapport — palette + layout
 const REPORT_TEMPLATES = {
-  "1": { id: "1", name: "Begué", primary: "#1A237E", accent: "#2c7a7b", boxBg: "#E0F2F1", muted: "#64748B", border: "#E2E8F0" },
-  "2": { id: "2", name: "Classique", primary: "#1E293B", accent: "#2563EB", boxBg: "#EFF6FF", muted: "#64748B", border: "#E2E8F0" },
-  "3": { id: "3", name: "Élégant", primary: "#4C1D95", accent: "#B91C1C", boxBg: "#FEF3C7", muted: "#6B7280", border: "#E5E7EB" },
-  "4": { id: "4", name: "Moderne", primary: "#0F172A", accent: "#EA580C", boxBg: "#FFF7ED", muted: "#64748B", border: "#E2E8F0" },
-  "5": { id: "5", name: "Précis", primary: "#111827", accent: "#059669", boxBg: "#ECFDF5", muted: "#6B7280", border: "#D1FAE5" },
+  "1": { id: "1", name: "Begué Neo", primary: "#1A237E", accent: "#2C7A7B", boxBg: "#E0F2F1", muted: "#64748B", border: "#E2E8F0", coverLayout: "centerCard", statsLayout: "cardsGrid", panelLayout: "dualClassic" },
+  "2": { id: "2", name: "Corporate Grid", primary: "#1E293B", accent: "#2563EB", boxBg: "#EFF6FF", muted: "#64748B", border: "#E2E8F0", coverLayout: "leftBanner", statsLayout: "tableCompact", panelLayout: "dualClassic" },
+  "3": { id: "3", name: "Editorial", primary: "#3F3F46", accent: "#7C3AED", boxBg: "#F5F3FF", muted: "#71717A", border: "#E4E4E7", coverLayout: "splitHero", statsLayout: "sidebarKpi", panelLayout: "stacked" },
+  "4": { id: "4", name: "Field Ops", primary: "#111827", accent: "#EA580C", boxBg: "#FFF7ED", muted: "#6B7280", border: "#FED7AA", coverLayout: "topRibbon", statsLayout: "cardsGrid", panelLayout: "heroAthenB" },
+  "5": { id: "5", name: "Precision Green", primary: "#0F172A", accent: "#059669", boxBg: "#ECFDF5", muted: "#6B7280", border: "#A7F3D0", coverLayout: "centerCard", statsLayout: "sidebarKpi", panelLayout: "dualClassic" },
+  "6": { id: "6", name: "Night Pulse", primary: "#E5E7EB", accent: "#22D3EE", boxBg: "#1F2937", muted: "#9CA3AF", border: "#374151", coverLayout: "leftBanner", statsLayout: "cardsGrid", panelLayout: "stacked" },
+  "7": { id: "7", name: "Ivory Premium", primary: "#312E81", accent: "#DC2626", boxBg: "#FFFBEB", muted: "#78716C", border: "#F5E6B3", coverLayout: "splitHero", statsLayout: "tableCompact", panelLayout: "heroAthenB" },
+  "8": { id: "8", name: "Urban Mint", primary: "#134E4A", accent: "#0EA5E9", boxBg: "#F0FDFA", muted: "#475569", border: "#99F6E4", coverLayout: "topRibbon", statsLayout: "sidebarKpi", panelLayout: "dualClassic" },
+  "9": { id: "9", name: "Bold Agency", primary: "#18181B", accent: "#E11D48", boxBg: "#FFF1F2", muted: "#71717A", border: "#FECDD3", coverLayout: "leftBanner", statsLayout: "cardsGrid", panelLayout: "heroAthenB" },
+  "10": { id: "10", name: "Atlas Clean", primary: "#0C4A6E", accent: "#16A34A", boxBg: "#F0F9FF", muted: "#64748B", border: "#BAE6FD", coverLayout: "splitHero", statsLayout: "tableCompact", panelLayout: "stacked" },
 };
 
 const getTemplate = (id) => {
@@ -109,8 +114,10 @@ const ensurePdfBucketExists = async () => {
   }
 };
 
-const buildPdfFileName = (type, id) =>
-  type === "projet" ? `rapport-projet-${id}.pdf` : `rapport-panneau-${id}.pdf`;
+const buildPdfFileName = (type, id, suffix = "") => {
+  const base = type === "projet" ? `rapport-projet-${id}` : `rapport-panneau-${id}`;
+  return `${base}${suffix ? `-${suffix}` : ""}.pdf`;
+};
 
 const addFooter = (doc, pageNum, totalPages, theme) => {
   const y = PAGE_HEIGHT - FOOTER_H + 14;
@@ -127,25 +134,47 @@ const BOX_RADIUS = 24;
 const drawCoverPage = (doc, reportTitle, clientName, theme, logos = {}, duree = "") => {
   doc.fillColor("#FFFFFF").rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT).fill();
 
+  const title = (reportTitle || "").toUpperCase();
+  const layout = theme.coverLayout || "centerCard";
   const boxX = (PAGE_WIDTH - BOX_WIDTH) / 2;
   const boxY = PAGE_HEIGHT / 2 - BOX_HEIGHT / 2 - 40;
 
-  doc.fillColor(theme.boxBg);
-  if (typeof doc.roundedRect === "function") {
-    doc.roundedRect(boxX, boxY, BOX_WIDTH, BOX_HEIGHT, BOX_RADIUS).fill();
+  if (layout === "leftBanner") {
+    doc.fillColor(theme.accent).rect(0, 0, 54, PAGE_HEIGHT).fill();
+    doc.fillColor(theme.boxBg).rect(70, 90, PAGE_WIDTH - 120, 320).fill();
+    doc.strokeColor(theme.border).lineWidth(1).rect(70, 90, PAGE_WIDTH - 120, 320).stroke();
+    doc.fillColor(theme.primary).fontSize(36).font("Helvetica-Bold").text(title, 94, 170, { width: PAGE_WIDTH - 180 });
+    doc.font("Helvetica").fontSize(16).fillColor(theme.muted).text(`Client : ${clientName || "-"}`, 94, 280);
+    if (duree) doc.font("Helvetica-Bold").fontSize(13).fillColor(theme.accent).text(`Durée ${duree}`, 94, 312);
+  } else if (layout === "splitHero") {
+    doc.fillColor(theme.boxBg).rect(0, 0, PAGE_WIDTH * 0.42, PAGE_HEIGHT).fill();
+    doc.fillColor(theme.accent).rect(PAGE_WIDTH * 0.42 - 4, 0, 8, PAGE_HEIGHT).fill();
+    doc.fillColor(theme.primary).fontSize(30).font("Helvetica-Bold").text(title, PAGE_WIDTH * 0.46, 240, { width: PAGE_WIDTH * 0.46 });
+    doc.font("Helvetica").fontSize(14).fillColor(theme.muted).text(`Client : ${clientName || "-"}`, PAGE_WIDTH * 0.46, 330, { width: PAGE_WIDTH * 0.46 });
+    if (duree) doc.font("Helvetica-Bold").fontSize(13).fillColor(theme.accent).text(`Durée ${duree}`, PAGE_WIDTH * 0.46, 360, { width: PAGE_WIDTH * 0.46 });
+  } else if (layout === "topRibbon") {
+    doc.fillColor(theme.boxBg).rect(0, 0, PAGE_WIDTH, 220).fill();
+    doc.fillColor(theme.accent).rect(0, 0, PAGE_WIDTH, 18).fill();
+    doc.strokeColor(theme.accent).lineWidth(2).moveTo(90, 250).lineTo(PAGE_WIDTH - 90, 250).stroke();
+    doc.fillColor(theme.primary).fontSize(34).font("Helvetica-Bold").text(title, 70, 290, { width: PAGE_WIDTH - 140, align: "center" });
+    doc.font("Helvetica").fontSize(15).fillColor(theme.muted).text(`Client : ${clientName || "-"}`, 70, 380, { width: PAGE_WIDTH - 140, align: "center" });
+    if (duree) doc.font("Helvetica-Bold").fontSize(13).fillColor(theme.accent).text(`Durée ${duree}`, 70, 410, { width: PAGE_WIDTH - 140, align: "center" });
   } else {
-    doc.rect(boxX, boxY, BOX_WIDTH, BOX_HEIGHT).fill();
-  }
-
-  doc.strokeColor(theme.accent).lineWidth(3).moveTo(boxX + 80, boxY + 50).lineTo(boxX + BOX_WIDTH - 80, boxY + 50).stroke();
-
-  doc.y = boxY + 70;
-  doc.fillColor(theme.primary).fontSize(28).font("Helvetica-Bold").text((reportTitle || "").toUpperCase(), boxX, doc.y, { width: BOX_WIDTH, align: "center" });
-  doc.y += 28;
-  doc.font("Helvetica").fontSize(14).fillColor(theme.primary).text(`Client : ${clientName || "-"}`, { width: PAGE_WIDTH, align: "center" });
-  if (duree) {
-    doc.y += 18;
-    doc.font("Helvetica").fontSize(13).fillColor(theme.accent).text(`Durée ${duree}`, { width: PAGE_WIDTH, align: "center" });
+    doc.fillColor(theme.boxBg);
+    if (typeof doc.roundedRect === "function") {
+      doc.roundedRect(boxX, boxY, BOX_WIDTH, BOX_HEIGHT, BOX_RADIUS).fill();
+    } else {
+      doc.rect(boxX, boxY, BOX_WIDTH, BOX_HEIGHT).fill();
+    }
+    doc.strokeColor(theme.accent).lineWidth(3).moveTo(boxX + 80, boxY + 50).lineTo(boxX + BOX_WIDTH - 80, boxY + 50).stroke();
+    doc.y = boxY + 70;
+    doc.fillColor(theme.primary).fontSize(28).font("Helvetica-Bold").text(title, boxX, doc.y, { width: BOX_WIDTH, align: "center" });
+    doc.y += 28;
+    doc.font("Helvetica").fontSize(14).fillColor(theme.primary).text(`Client : ${clientName || "-"}`, { width: PAGE_WIDTH, align: "center" });
+    if (duree) {
+      doc.y += 18;
+      doc.font("Helvetica").fontSize(13).fillColor(theme.accent).text(`Durée ${duree}`, { width: PAGE_WIDTH, align: "center" });
+    }
   }
 
   doc.y = PAGE_HEIGHT - FOOTER_H - 30;
@@ -160,21 +189,48 @@ const drawStatsPage = (doc, projet, summary, zones, mapBuffer, theme) => {
   doc.strokeColor(theme.accent).lineWidth(2).moveTo(MARGIN_X, doc.y).lineTo(MARGIN_X + 100, doc.y).stroke();
   doc.y += 28;
 
-  const statW = (CONTENT_WIDTH - 32) / 3;
-  const statH = 82;
   const stats = [
     { label: "Total panneaux", value: String(summary.total) },
     { label: "Complétés", value: String(summary.completed) },
     { label: "Restants", value: String(summary.remaining) },
   ];
-  stats.forEach((s, i) => {
-    const x = MARGIN_X + i * (statW + 16);
-    doc.fillColor("#FFFFFF").rect(x + 2, doc.y + 2, statW, statH).fill();
-    doc.rect(x, doc.y, statW, statH).strokeColor(theme.border).lineWidth(0.5).stroke();
-    doc.fontSize(38).font("Helvetica-Bold").fillColor(theme.accent).text(s.value, x, doc.y + 18, { width: statW, align: "center" });
-    doc.fontSize(FONT_CAPTION).fillColor(theme.primary).text(s.label, x, doc.y + 62, { width: statW, align: "center" });
-  });
-  doc.y += statH + 28;
+  const statsLayout = theme.statsLayout || "cardsGrid";
+  if (statsLayout === "tableCompact") {
+    const rowY = doc.y;
+    doc.fillColor(theme.boxBg).rect(MARGIN_X, rowY, CONTENT_WIDTH, 92).fill();
+    doc.strokeColor(theme.border).lineWidth(0.7).rect(MARGIN_X, rowY, CONTENT_WIDTH, 92).stroke();
+    const cellW = CONTENT_WIDTH / 3;
+    stats.forEach((s, i) => {
+      const x = MARGIN_X + i * cellW;
+      if (i > 0) doc.strokeColor(theme.border).lineWidth(0.5).moveTo(x, rowY).lineTo(x, rowY + 92).stroke();
+      doc.font("Helvetica-Bold").fontSize(34).fillColor(theme.accent).text(s.value, x, rowY + 20, { width: cellW, align: "center" });
+      doc.font("Helvetica").fontSize(11).fillColor(theme.primary).text(s.label, x, rowY + 63, { width: cellW, align: "center" });
+    });
+    doc.y += 110;
+  } else if (statsLayout === "sidebarKpi") {
+    const sidebarX = PAGE_WIDTH - MARGIN_X - 140;
+    const baseY = doc.y;
+    stats.forEach((s, i) => {
+      const y = baseY + i * 88;
+      doc.fillColor(theme.boxBg).rect(sidebarX, y, 140, 76).fill();
+      doc.strokeColor(theme.border).lineWidth(0.6).rect(sidebarX, y, 140, 76).stroke();
+      doc.font("Helvetica-Bold").fontSize(30).fillColor(theme.accent).text(s.value, sidebarX, y + 12, { width: 140, align: "center" });
+      doc.font("Helvetica").fontSize(10).fillColor(theme.primary).text(s.label, sidebarX, y + 52, { width: 140, align: "center" });
+    });
+    doc.font("Helvetica").fontSize(12).fillColor(theme.muted).text("KPI", MARGIN_X, baseY + 6);
+    doc.y = baseY + 270;
+  } else {
+    const statW = (CONTENT_WIDTH - 32) / 3;
+    const statH = 82;
+    stats.forEach((s, i) => {
+      const x = MARGIN_X + i * (statW + 16);
+      doc.fillColor("#FFFFFF").rect(x + 2, doc.y + 2, statW, statH).fill();
+      doc.rect(x, doc.y, statW, statH).strokeColor(theme.border).lineWidth(0.5).stroke();
+      doc.fontSize(38).font("Helvetica-Bold").fillColor(theme.accent).text(s.value, x, doc.y + 18, { width: statW, align: "center" });
+      doc.fontSize(FONT_CAPTION).fillColor(theme.primary).text(s.label, x, doc.y + 62, { width: statW, align: "center" });
+    });
+    doc.y += statH + 28;
+  }
 
   const gridY = doc.y;
   const leftCol = MARGIN_X;
@@ -221,8 +277,8 @@ const drawStatsPage = (doc, projet, summary, zones, mapBuffer, theme) => {
     doc.strokeColor(theme.accent).lineWidth(0.5).moveTo(MARGIN_X, doc.y).lineTo(MARGIN_X + 60, doc.y).stroke();
     doc.y += 24;
     doc.rect(MARGIN_X, doc.y, CONTENT_WIDTH, 120).strokeColor("#E2E8F0").lineWidth(0.5).stroke();
-    doc.fontSize(FONT_BODY).fillColor(BILLBOARD_EYE.muted).text("Carte non disponible.", MARGIN_X + 16, doc.y + 24, { width: CONTENT_WIDTH - 32, align: "center" });
-    doc.fontSize(FONT_CAPTION).fillColor(BILLBOARD_EYE.muted).text(`Zones : ${zones.join(" · ")}`, MARGIN_X + 16, doc.y + 70, { width: CONTENT_WIDTH - 32, align: "center" });
+    doc.fontSize(FONT_BODY).fillColor(theme.muted).text("Carte non disponible.", MARGIN_X + 16, doc.y + 24, { width: CONTENT_WIDTH - 32, align: "center" });
+    doc.fontSize(FONT_CAPTION).fillColor(theme.muted).text(`Zones : ${zones.join(" · ")}`, MARGIN_X + 16, doc.y + 70, { width: CONTENT_WIDTH - 32, align: "center" });
     doc.y += 132;
   }
 };
@@ -244,52 +300,77 @@ const drawPhotoPair = (doc, faceABuf, faceBBuf, zoneName, gps, theme, observatio
   doc.strokeColor(theme.accent).lineWidth(2).moveTo(MARGIN_X, doc.y).lineTo(MARGIN_X + 220, doc.y).stroke();
   doc.y += 24;
 
-  const halfW = (CONTENT_WIDTH - IMG_GAP) / 2;
-  const imgW = Math.min(IMG_SIZE, halfW - 8);
-  const imgH = (imgW * 3) / 4;
-  const framePad = 8;
-  const startY = doc.y;
-  const leftX = MARGIN_X;
-  const rightX = MARGIN_X + halfW + IMG_GAP;
-
-  doc.fontSize(12).font("Helvetica-Bold").fillColor(theme.primary).text("FACE A", leftX, startY - 20, { width: halfW, align: "center" });
-  doc.fontSize(12).font("Helvetica-Bold").fillColor(theme.primary).text("FACE B", rightX, startY - 20, { width: halfW, align: "center" });
-
-  const drawPhotoFrame = (x, buf, label) => {
-    doc.strokeColor(theme.accent).lineWidth(1.5).rect(x, startY, imgW + framePad * 2, imgH + framePad * 2).stroke();
-    if (buf) {
-      doc.image(buf, x + framePad, startY + framePad, { width: imgW, height: imgH });
-    } else {
-      doc.fillColor("#F1F5F9").rect(x + framePad, startY + framePad, imgW, imgH).fill();
-      doc.fontSize(FONT_CAPTION).fillColor(theme.muted).text(`[Insérer photo ${label} ici]`, x, startY + imgH / 2 + framePad - 6, { width: imgW + framePad * 2, align: "center" });
-    }
+  const panelLayout = theme.panelLayout || "dualClassic";
+  const drawNoteLines = (x, y, width) => {
+    doc.strokeColor(theme.border).lineWidth(0.3).moveTo(x, y).lineTo(x + width, y).stroke();
+    doc.moveTo(x, y + 12).lineTo(x + width, y + 12).stroke();
+    doc.moveTo(x, y + 24).lineTo(x + width, y + 24).stroke();
   };
 
-  drawPhotoFrame(leftX, faceABuf, "Face A");
-  drawPhotoFrame(rightX, faceBBuf, "Face B");
-
-  doc.y = startY + imgH + framePad * 2 + 28;
-
-  doc.fontSize(10).font("Helvetica-Bold").fillColor(theme.primary).text("Observations / Notes - Face A :", leftX, doc.y);
-  doc.y += 14;
-  doc.strokeColor(theme.border).lineWidth(0.3).moveTo(leftX, doc.y).lineTo(leftX + halfW, doc.y).stroke();
-  doc.y += 12;
-  doc.strokeColor(theme.border).lineWidth(0.3).moveTo(leftX, doc.y).lineTo(leftX + halfW, doc.y).stroke();
-  doc.y += 12;
-  doc.strokeColor(theme.border).lineWidth(0.3).moveTo(leftX, doc.y).lineTo(leftX + halfW, doc.y).stroke();
-  if (observationsA) doc.fontSize(FONT_BODY).fillColor(theme.primary).text(observationsA, leftX, doc.y - 24, { width: halfW - 4 });
-
-  doc.y = startY + imgH + framePad * 2 + 28;
-  doc.fontSize(10).font("Helvetica-Bold").fillColor(theme.primary).text("Observations / Notes - Face B :", rightX, doc.y);
-  doc.y += 14;
-  doc.strokeColor(theme.border).lineWidth(0.3).moveTo(rightX, doc.y).lineTo(rightX + halfW, doc.y).stroke();
-  doc.y += 12;
-  doc.strokeColor(theme.border).lineWidth(0.3).moveTo(rightX, doc.y).lineTo(rightX + halfW, doc.y).stroke();
-  doc.y += 12;
-  doc.strokeColor(theme.border).lineWidth(0.3).moveTo(rightX, doc.y).lineTo(rightX + halfW, doc.y).stroke();
-  if (observationsB) doc.fontSize(FONT_BODY).fillColor(theme.primary).text(observationsB, rightX, doc.y - 24, { width: halfW - 4 });
-
-  doc.y = startY + imgH + framePad * 2 + 90;
+  if (panelLayout === "stacked") {
+    const frameW = CONTENT_WIDTH - 20;
+    const frameH = 170;
+    const leftX = MARGIN_X + 10;
+    const startY = doc.y;
+    const drawStackFrame = (buf, label, y) => {
+      doc.fontSize(11).font("Helvetica-Bold").fillColor(theme.primary).text(label, leftX, y - 16);
+      doc.strokeColor(theme.accent).lineWidth(1.2).rect(leftX, y, frameW, frameH).stroke();
+      if (buf) {
+        doc.image(buf, leftX + 6, y + 6, { width: frameW - 12, height: frameH - 12 });
+      } else {
+        doc.fillColor("#F8FAFC").rect(leftX + 6, y + 6, frameW - 12, frameH - 12).fill();
+      }
+    };
+    drawStackFrame(faceABuf, "FACE A", startY);
+    drawStackFrame(faceBBuf, "FACE B", startY + frameH + 30);
+    const notesY = startY + frameH * 2 + 70;
+    doc.fontSize(10).font("Helvetica-Bold").fillColor(theme.primary).text("Observations", leftX, notesY);
+    drawNoteLines(leftX, notesY + 14, frameW);
+  } else if (panelLayout === "heroAthenB") {
+    const topY = doc.y;
+    const heroW = CONTENT_WIDTH;
+    const heroH = 210;
+    doc.fontSize(12).font("Helvetica-Bold").fillColor(theme.primary).text("FACE A (PRINCIPALE)", MARGIN_X, topY - 18);
+    doc.strokeColor(theme.accent).lineWidth(1.6).rect(MARGIN_X, topY, heroW, heroH).stroke();
+    if (faceABuf) {
+      doc.image(faceABuf, MARGIN_X + 8, topY + 8, { width: heroW - 16, height: heroH - 16 });
+    }
+    const secondY = topY + heroH + 36;
+    doc.fontSize(12).font("Helvetica-Bold").fillColor(theme.primary).text("FACE B", MARGIN_X, secondY - 18);
+    doc.strokeColor(theme.accent).lineWidth(1.2).rect(MARGIN_X, secondY, CONTENT_WIDTH * 0.58, 125).stroke();
+    if (faceBBuf) {
+      doc.image(faceBBuf, MARGIN_X + 6, secondY + 6, { width: CONTENT_WIDTH * 0.58 - 12, height: 113 });
+    }
+    const notesX = MARGIN_X + CONTENT_WIDTH * 0.62;
+    doc.fontSize(10).font("Helvetica-Bold").fillColor(theme.primary).text("Notes", notesX, secondY);
+    drawNoteLines(notesX, secondY + 18, CONTENT_WIDTH * 0.38);
+  } else {
+    const halfW = (CONTENT_WIDTH - IMG_GAP) / 2;
+    const imgW = Math.min(IMG_SIZE, halfW - 8);
+    const imgH = (imgW * 3) / 4;
+    const framePad = 8;
+    const startY = doc.y;
+    const leftX = MARGIN_X;
+    const rightX = MARGIN_X + halfW + IMG_GAP;
+    doc.fontSize(12).font("Helvetica-Bold").fillColor(theme.primary).text("FACE A", leftX, startY - 20, { width: halfW, align: "center" });
+    doc.fontSize(12).font("Helvetica-Bold").fillColor(theme.primary).text("FACE B", rightX, startY - 20, { width: halfW, align: "center" });
+    const drawPhotoFrame = (x, buf, label) => {
+      doc.strokeColor(theme.accent).lineWidth(1.5).rect(x, startY, imgW + framePad * 2, imgH + framePad * 2).stroke();
+      if (buf) {
+        doc.image(buf, x + framePad, startY + framePad, { width: imgW, height: imgH });
+      } else {
+        doc.fillColor("#F1F5F9").rect(x + framePad, startY + framePad, imgW, imgH).fill();
+        doc.fontSize(FONT_CAPTION).fillColor(theme.muted).text(`[Insérer photo ${label} ici]`, x, startY + imgH / 2 + framePad - 6, { width: imgW + framePad * 2, align: "center" });
+      }
+    };
+    drawPhotoFrame(leftX, faceABuf, "Face A");
+    drawPhotoFrame(rightX, faceBBuf, "Face B");
+    doc.y = startY + imgH + framePad * 2 + 28;
+    doc.fontSize(10).font("Helvetica-Bold").fillColor(theme.primary).text("Observations / Notes - Face A :", leftX, doc.y);
+    drawNoteLines(leftX, doc.y + 14, halfW);
+    doc.fontSize(10).font("Helvetica-Bold").fillColor(theme.primary).text("Observations / Notes - Face B :", rightX, doc.y);
+    drawNoteLines(rightX, doc.y + 14, halfW);
+  }
 };
 
 
@@ -423,8 +504,9 @@ const savePanneauPdfUrlBestEffort = async (panneauId, url) => {
   } catch (_) {}
 };
 
-const generatePanneauPDF = async (rapport) => {
-  const fileName = buildPdfFileName("panneau", rapport.panneau.id);
+const generatePanneauPDF = async (rapport, options = {}) => {
+  const suffix = options.suffix || "";
+  const fileName = options.fileName || buildPdfFileName("panneau", rapport.panneau.id, suffix);
   const buffer = await createPanneauPDFBuffer(rapport);
   const url = await uploadPDFToSupabase(buffer, fileName);
   await savePanneauPdfUrlBestEffort(rapport.panneau.id, url);
@@ -433,7 +515,8 @@ const generatePanneauPDF = async (rapport) => {
 
 const generateProjetPDF = async (report, options = {}) => {
   const templateId = options.template || "1";
-  const fileName = buildPdfFileName("projet", report.projet.id);
+  const suffix = options.suffix || "";
+  const fileName = options.fileName || buildPdfFileName("projet", report.projet.id, suffix);
   const buffer = await createProjetPDFBuffer(report, templateId);
   const url = await uploadPDFToSupabase(buffer, fileName);
   return { buffer, fileName, url };

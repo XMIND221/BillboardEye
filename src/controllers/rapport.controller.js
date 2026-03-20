@@ -145,6 +145,59 @@ const getProjetReportDebugHandler = async (req, res) => {
   return res.status(200).json({ success: true, data: debug });
 };
 
+const applyProjetOverrides = (report, overrides = {}) => {
+  const next = {
+    ...report,
+    projet: { ...report.projet },
+    panneaux: (report.panneaux || []).map((p) => ({ ...p })),
+  };
+
+  if (overrides.titreRapport != null) next.projet.titreRapport = String(overrides.titreRapport);
+  if (overrides.entreprise != null) next.projet.entreprise = String(overrides.entreprise);
+  if (overrides.duree != null) next.projet.duree = String(overrides.duree);
+  if (overrides.instructions != null) next.projet.instructions = String(overrides.instructions);
+  if (overrides.zone != null) next.projet.zone = String(overrides.zone);
+  if (overrides.assignedAgent != null) next.projet.assignedAgent = String(overrides.assignedAgent);
+  if (overrides.date != null) next.projet.date = String(overrides.date);
+
+  const panneauOverrides = Array.isArray(overrides.panneaux) ? overrides.panneaux : [];
+  const byId = new Map(panneauOverrides.map((p) => [String(p.id), p]));
+  const orderById = new Map(panneauOverrides.map((p, idx) => [String(p.id), Number.isFinite(p.order) ? p.order : idx]));
+  next.panneaux = next.panneaux
+    .map((p) => {
+      const ov = byId.get(String(p.id));
+      if (!ov) return p;
+      return {
+        ...p,
+        observationsFaceA: ov.observationsFaceA != null ? String(ov.observationsFaceA) : p.observationsFaceA,
+        observationsFaceB: ov.observationsFaceB != null ? String(ov.observationsFaceB) : p.observationsFaceB,
+        disabledInReport: ov.enabled === false,
+        localisation: {
+          ...(p.localisation || {}),
+          adresse: ov.zoneName != null ? String(ov.zoneName) : p.localisation?.adresse,
+          latitude: ov.latitude != null && ov.latitude !== "" ? Number(ov.latitude) : p.localisation?.latitude,
+          longitude: ov.longitude != null && ov.longitude !== "" ? Number(ov.longitude) : p.localisation?.longitude,
+        },
+        __order: orderById.get(String(p.id)) ?? 99999,
+      };
+    })
+    .filter((p) => !p.disabledInReport)
+    .sort((a, b) => (a.__order || 0) - (b.__order || 0))
+    .map((p) => {
+      const { __order, ...clean } = p;
+      return clean;
+    });
+
+  next.summary = {
+    ...next.summary,
+    total: next.panneaux.length,
+    completed: next.panneaux.filter((p) => p.isComplete).length,
+    remaining: next.panneaux.filter((p) => !p.isComplete).length,
+  };
+
+  return next;
+};
+
 const getProjetReportPDFUrlHandler = async (req, res) => {
   let report;
 
@@ -220,8 +273,62 @@ const getProjetReportPDFHandler = async (req, res) => {
   }
 };
 
+const previewProjetReportPDFHandler = async (req, res) => {
+  let report;
+  try {
+    report = await getProjetReport(req.params.id);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Erreur interne lors du chargement du rapport." });
+  }
+  if (!report) {
+    return res.status(404).json({ success: false, message: "Campagne introuvable." });
+  }
+  try {
+    const templateId = req.body?.templateId || "1";
+    const overrides = req.body?.overrides || {};
+    const reportWithOverrides = applyProjetOverrides(report, overrides);
+    const suffix = `preview-${Date.now()}`;
+    const { url } = await generateProjetPDF(reportWithOverrides, { template: templateId, suffix });
+    return res.status(200).json({ success: true, data: { url } });
+  } catch (error) {
+    console.error("[rapport] previewProjetReportPDFHandler error:", error?.message || error);
+    return res.status(500).json({ success: false, message: "Erreur lors de la génération de l'aperçu PDF." });
+  }
+};
+
+const generateProjetReportFinalPDFHandler = async (req, res) => {
+  let report;
+  try {
+    report = await getProjetReport(req.params.id);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Erreur interne lors du chargement du rapport." });
+  }
+  if (!report) {
+    return res.status(404).json({ success: false, message: "Campagne introuvable." });
+  }
+  try {
+    const templateId = req.body?.templateId || "1";
+    const overrides = req.body?.overrides || {};
+    const reportWithOverrides = applyProjetOverrides(report, overrides);
+    const { url } = await generateProjetPDF(reportWithOverrides, { template: templateId });
+    return res.status(200).json({ success: true, data: { url } });
+  } catch (error) {
+    console.error("[rapport] generateProjetReportFinalPDFHandler error:", error?.message || error);
+    return res.status(500).json({ success: false, message: "Erreur lors de la génération du PDF final." });
+  }
+};
+
 const getTemplatesHandler = (req, res) => {
-  const templates = Object.values(REPORT_TEMPLATES).map((t) => ({ id: t.id, name: t.name, primary: t.primary, accent: t.accent, boxBg: t.boxBg }));
+  const templates = Object.values(REPORT_TEMPLATES).map((t) => ({
+    id: t.id,
+    name: t.name,
+    primary: t.primary,
+    accent: t.accent,
+    boxBg: t.boxBg,
+    coverLayout: t.coverLayout,
+    statsLayout: t.statsLayout,
+    panelLayout: t.panelLayout,
+  }));
   return res.status(200).json({ success: true, data: templates });
 };
 
@@ -234,4 +341,6 @@ module.exports = {
   getProjetReportPDFUrlHandler,
   getProjetReportPDFHandler,
   getTemplatesHandler,
+  previewProjetReportPDFHandler,
+  generateProjetReportFinalPDFHandler,
 };

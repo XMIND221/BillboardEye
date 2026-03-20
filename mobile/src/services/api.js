@@ -74,6 +74,22 @@ export const getProjetPDFUrl = async (projetId, templateId = "1") => {
   return apiRequest(`/rapport/projet/${projetId}/pdf-url${q}`);
 };
 
+export const previewProjetPDF = async (projetId, payload) => {
+  return apiRequest(`/rapport/projet/${projetId}/preview`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {}),
+  });
+};
+
+export const generateProjetPDFFinal = async (projetId, payload) => {
+  return apiRequest(`/rapport/projet/${projetId}/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {}),
+  });
+};
+
 export const getReportTemplates = async () => {
   return apiRequest("/rapport/templates");
 };

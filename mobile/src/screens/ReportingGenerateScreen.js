@@ -10,15 +10,50 @@ import {
 } from "react-native";
 
 const REPORT_TEMPLATES = [
-  { id: "1", name: "Begué", colors: ["#E0F2F1", "#2c7a7b", "#1A237E"] },
-  { id: "2", name: "Classique", colors: ["#EFF6FF", "#2563EB", "#1E293B"] },
-  { id: "3", name: "Élégant", colors: ["#FEF3C7", "#B91C1C", "#4C1D95"] },
-  { id: "4", name: "Moderne", colors: ["#FFF7ED", "#EA580C", "#0F172A"] },
-  { id: "5", name: "Précis", colors: ["#ECFDF5", "#059669", "#111827"] },
+  { id: "1", name: "Begué Neo", colors: ["#E0F2F1", "#2C7A7B", "#1A237E"], model: "center-card" },
+  { id: "2", name: "Corporate Grid", colors: ["#EFF6FF", "#2563EB", "#1E293B"], model: "left-banner" },
+  { id: "3", name: "Editorial", colors: ["#F5F3FF", "#7C3AED", "#3F3F46"], model: "split-hero" },
+  { id: "4", name: "Field Ops", colors: ["#FFF7ED", "#EA580C", "#111827"], model: "top-ribbon" },
+  { id: "5", name: "Precision Green", colors: ["#ECFDF5", "#059669", "#0F172A"], model: "center-card" },
+  { id: "6", name: "Night Pulse", colors: ["#1F2937", "#22D3EE", "#E5E7EB"], model: "left-banner" },
+  { id: "7", name: "Ivory Premium", colors: ["#FFFBEB", "#DC2626", "#312E81"], model: "split-hero" },
+  { id: "8", name: "Urban Mint", colors: ["#F0FDFA", "#0EA5E9", "#134E4A"], model: "top-ribbon" },
+  { id: "9", name: "Bold Agency", colors: ["#FFF1F2", "#E11D48", "#18181B"], model: "left-banner" },
+  { id: "10", name: "Atlas Clean", colors: ["#F0F9FF", "#16A34A", "#0C4A6E"], model: "split-hero" },
 ];
-import { getProjets, getProjetPDFUrl, getProjetReport } from "../services/api";
+
+function TemplateModelPreview({ tpl }) {
+  const bg = tpl.colors[0];
+  const accent = tpl.colors[1];
+  const primary = tpl.colors[2];
+  return (
+    <View style={styles.modelBox}>
+      {tpl.model === "left-banner" ? (
+        <>
+          <View style={[styles.modelLeftBar, { backgroundColor: accent }]} />
+          <View style={[styles.modelInnerCard, { backgroundColor: bg, borderColor: accent }]} />
+        </>
+      ) : tpl.model === "split-hero" ? (
+        <>
+          <View style={[styles.modelSplitLeft, { backgroundColor: bg }]} />
+          <View style={[styles.modelSplitLine, { backgroundColor: accent }]} />
+        </>
+      ) : tpl.model === "top-ribbon" ? (
+        <>
+          <View style={[styles.modelTopRibbon, { backgroundColor: accent }]} />
+          <View style={[styles.modelCenterLine, { backgroundColor: primary }]} />
+        </>
+      ) : (
+        <>
+          <View style={[styles.modelCenterCard, { backgroundColor: bg, borderColor: accent }]} />
+          <View style={[styles.modelCenterLine, { backgroundColor: primary }]} />
+        </>
+      )}
+    </View>
+  );
+}
+import { getProjets, getProjetReport } from "../services/api";
 import { theme } from "../theme";
-import Button from "../components/Button";
 import { getSelectedProject } from "../services/projectStorage";
 
 const parseZones = (zoneStr) =>
@@ -35,7 +70,6 @@ export default function ReportingGenerateScreen({ navigation, route }) {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingReport, setLoadingReport] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
@@ -96,22 +130,16 @@ export default function ReportingGenerateScreen({ navigation, route }) {
     [campaigns, selectedCampaignId],
   );
 
-  const generatePdf = async () => {
+  const prepareReport = async () => {
     if (!selectedCampaignId) return;
     try {
-      setGenerating(true);
       setError("");
-      const result = await getProjetPDFUrl(selectedCampaignId, selectedTemplateId);
-      navigation.navigate("ReportingPreview", {
+      navigation.navigate("ReportingEditor", {
         campaign: selectedCampaign,
         reportData,
-        pdfUrl: result?.url || "",
+        templateId: selectedTemplateId,
       });
-    } catch (err) {
-      setError(err.message || "Génération PDF impossible.");
-    } finally {
-      setGenerating(false);
-    }
+    } catch (_err) {}
   };
 
   const zones = parseZones(reportData?.projet?.zone);
@@ -154,6 +182,7 @@ export default function ReportingGenerateScreen({ navigation, route }) {
                   <View key={i} style={[styles.templateColorDot, { backgroundColor: c }]} />
                 ))}
               </View>
+              <TemplateModelPreview tpl={t} />
               <Text style={[styles.templateName, selected && styles.templateNameSelected]}>{t.name}</Text>
             </TouchableOpacity>
           );
@@ -259,16 +288,12 @@ export default function ReportingGenerateScreen({ navigation, route }) {
           ) : null}
 
           <TouchableOpacity
-            style={[styles.primaryButton, (generating || !selectedCampaignId) && styles.primaryButtonDisabled]}
-            onPress={generatePdf}
-            disabled={generating || !selectedCampaignId}
+            style={[styles.primaryButton, (!selectedCampaignId || !reportData) && styles.primaryButtonDisabled]}
+            onPress={prepareReport}
+            disabled={!selectedCampaignId || !reportData}
             activeOpacity={0.85}
           >
-            {generating ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.primaryText}>Générer le PDF</Text>
-            )}
+            <Text style={styles.primaryText}>Éditer puis générer</Text>
           </TouchableOpacity>
         </>
       )}
@@ -284,7 +309,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: theme.spacing.sm },
   templatesScroll: { marginBottom: theme.spacing.sm },
   templateCard: {
-    width: 100,
+    width: 124,
     padding: theme.spacing.md,
     marginRight: theme.spacing.sm,
     borderRadius: theme.radius.lg,
@@ -296,7 +321,15 @@ const styles = StyleSheet.create({
   templateCardSelected: { borderColor: theme.colors.accent, backgroundColor: theme.colors.primaryLight },
   templateColors: { flexDirection: "row", gap: 6, marginBottom: 8 },
   templateColorDot: { width: 20, height: 20, borderRadius: 10 },
-  templateName: { fontSize: 13, fontWeight: "700", color: theme.colors.text },
+  modelBox: { width: 88, height: 52, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: "#fff", overflow: "hidden", marginBottom: 8, position: "relative" },
+  modelLeftBar: { width: 10, height: "100%" },
+  modelInnerCard: { position: "absolute", left: 16, top: 8, right: 8, bottom: 8, borderWidth: 1, borderRadius: 6 },
+  modelSplitLeft: { position: "absolute", left: 0, top: 0, bottom: 0, width: "40%" },
+  modelSplitLine: { position: "absolute", left: "40%", top: 0, bottom: 0, width: 2 },
+  modelTopRibbon: { position: "absolute", left: 0, right: 0, top: 0, height: 8 },
+  modelCenterCard: { position: "absolute", left: 14, right: 14, top: 10, bottom: 10, borderWidth: 1, borderRadius: 6 },
+  modelCenterLine: { position: "absolute", left: 20, right: 20, top: 24, height: 2 },
+  templateName: { fontSize: 11, fontWeight: "700", color: theme.colors.text, textAlign: "center" },
   templateNameSelected: { color: theme.colors.accent },
   templatePreviewButton: {
     alignSelf: "flex-start",

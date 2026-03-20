@@ -19,6 +19,7 @@ import AgentMissionCompleteScreen from "./src/screens/AgentMissionCompleteScreen
 import AgentPanneauxScreen from "./src/screens/AgentPanneauxScreen";
 import UploadPanneauScreen from "./src/screens/UploadPanneauScreen";
 import ReportingGenerateScreen from "./src/screens/ReportingGenerateScreen";
+import ReportingEditorScreen from "./src/screens/ReportingEditorScreen";
 import ReportingPreviewScreen from "./src/screens/ReportingPreviewScreen";
 import ReportingTemplatePreviewScreen from "./src/screens/ReportingTemplatePreviewScreen";
 import { clearUserRole, getUserRole, saveUserRole } from "./src/services/projectStorage";
@@ -141,6 +142,11 @@ function ReportingNavigator({ onSwitchRole, onSignOut, userEmail }) {
           title: "Générer rapport",
           headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} />,
         }}
+      />
+      <ReportingStack.Screen
+        name="ReportingEditor"
+        component={ReportingEditorScreen}
+        options={{ title: "Édition rapport", headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}
       />
       <ReportingStack.Screen
         name="ReportingPreview"
