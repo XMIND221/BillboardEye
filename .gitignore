@@ -13,3 +13,12 @@ uploads/
 .expo/
 .DS_Store
 *.log
+
+# Référence UI Next.js — ne pas versionner (allège clone + build Docker)
+tmp_v0_template/
+
+# Fichiers parasites souvent créés par erreur sous Windows
+/del
+/docker
+/npm
+/rmdir
