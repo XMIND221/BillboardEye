@@ -4,10 +4,12 @@
   "private": true,
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "start": "cross-env EXPO_NO_DEPENDENCY_VALIDATION=1 expo start",
+    "start:clear": "cross-env EXPO_NO_DEPENDENCY_VALIDATION=1 expo start -c",
+    "start:offline": "cross-env EXPO_NO_DEPENDENCY_VALIDATION=1 expo start --offline",
+    "android": "cross-env EXPO_NO_DEPENDENCY_VALIDATION=1 expo start --android",
+    "ios": "cross-env EXPO_NO_DEPENDENCY_VALIDATION=1 expo start --ios",
+    "web": "cross-env EXPO_NO_DEPENDENCY_VALIDATION=1 expo start --web"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -30,5 +32,8 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-web": "^0.21.0"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0"
   }
 }

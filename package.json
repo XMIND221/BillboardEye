@@ -9,6 +9,7 @@
     "dev": "nodemon server.js",
     "diagnose-pdf": "node scripts/diagnose-pdf.js",
     "mobile:start": "npm --prefix mobile run start",
+    "mobile:start:clear": "npm --prefix mobile run start:clear",
     "android": "npm --prefix mobile run android",
     "ios": "npm --prefix mobile run ios",
     "web": "npm --prefix mobile run web",
