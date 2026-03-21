@@ -1,57 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-  ScrollView,
-  RefreshControl,
-} from "react-native";
-
-const REPORT_TEMPLATES = [
-  { id: "1", name: "Begué Neo", colors: ["#E0F2F1", "#2C7A7B", "#1A237E"], model: "center-card", cover: "Center", stats: "Cards", panel: "Dual" },
-  { id: "2", name: "Corporate Grid", colors: ["#EFF6FF", "#2563EB", "#1E293B"], model: "left-banner", cover: "Banner", stats: "Table", panel: "Dual" },
-  { id: "3", name: "Editorial", colors: ["#F5F3FF", "#7C3AED", "#3F3F46"], model: "split-hero", cover: "Split", stats: "Sidebar", panel: "Stacked" },
-  { id: "4", name: "Field Ops", colors: ["#FFF7ED", "#EA580C", "#111827"], model: "top-ribbon", cover: "Ribbon", stats: "Cards", panel: "Hero" },
-  { id: "5", name: "Precision Green", colors: ["#ECFDF5", "#059669", "#0F172A"], model: "center-card", cover: "Center", stats: "Sidebar", panel: "Dual" },
-  { id: "6", name: "Night Pulse", colors: ["#1F2937", "#22D3EE", "#E5E7EB"], model: "left-banner", cover: "Banner", stats: "Cards", panel: "Stacked" },
-  { id: "7", name: "Ivory Premium", colors: ["#FFFBEB", "#DC2626", "#312E81"], model: "split-hero", cover: "Split", stats: "Table", panel: "Hero" },
-  { id: "8", name: "Urban Mint", colors: ["#F0FDFA", "#0EA5E9", "#134E4A"], model: "top-ribbon", cover: "Ribbon", stats: "Sidebar", panel: "Dual" },
-  { id: "9", name: "Bold Agency", colors: ["#FFF1F2", "#E11D48", "#18181B"], model: "left-banner", cover: "Banner", stats: "Cards", panel: "Hero" },
-  { id: "10", name: "Atlas Clean", colors: ["#F0F9FF", "#16A34A", "#0C4A6E"], model: "split-hero", cover: "Split", stats: "Table", panel: "Stacked" },
-];
-
-function TemplateModelPreview({ tpl }) {
-  const bg = tpl.colors[0];
-  const accent = tpl.colors[1];
-  const primary = tpl.colors[2];
-  return (
-    <View style={styles.modelBox}>
-      {tpl.model === "left-banner" ? (
-        <>
-          <View style={[styles.modelLeftBar, { backgroundColor: accent }]} />
-          <View style={[styles.modelInnerCard, { backgroundColor: bg, borderColor: accent }]} />
-        </>
-      ) : tpl.model === "split-hero" ? (
-        <>
-          <View style={[styles.modelSplitLeft, { backgroundColor: bg }]} />
-          <View style={[styles.modelSplitLine, { backgroundColor: accent }]} />
-        </>
-      ) : tpl.model === "top-ribbon" ? (
-        <>
-          <View style={[styles.modelTopRibbon, { backgroundColor: accent }]} />
-          <View style={[styles.modelCenterLine, { backgroundColor: primary }]} />
-        </>
-      ) : (
-        <>
-          <View style={[styles.modelCenterCard, { backgroundColor: bg, borderColor: accent }]} />
-          <View style={[styles.modelCenterLine, { backgroundColor: primary }]} />
-        </>
-      )}
-    </View>
-  );
-}
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, RefreshControl } from "react-native";
 import { getProjets, getProjetPDFUrl, getProjetReport } from "../services/api";
 import { theme } from "../theme";
 import { getSelectedProject } from "../services/projectStorage";
@@ -66,7 +14,6 @@ export default function ReportingGenerateScreen({ navigation, route }) {
   const preselectedCampaignId = route.params?.preselectedCampaignId;
   const [campaigns, setCampaigns] = useState([]);
   const [selectedCampaignId, setSelectedCampaignId] = useState(preselectedCampaignId || "");
-  const [selectedTemplateId, setSelectedTemplateId] = useState("1");
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingReport, setLoadingReport] = useState(false);
@@ -138,7 +85,6 @@ export default function ReportingGenerateScreen({ navigation, route }) {
       navigation.navigate("ReportingEditor", {
         campaign: selectedCampaign,
         reportData,
-        templateId: selectedTemplateId,
       });
     } catch (_err) {}
   };
@@ -148,12 +94,11 @@ export default function ReportingGenerateScreen({ navigation, route }) {
     try {
       setGeneratingDirect(true);
       setError("");
-      const result = await getProjetPDFUrl(selectedCampaignId, selectedTemplateId);
+      const result = await getProjetPDFUrl(selectedCampaignId);
       navigation.navigate("ReportingPreview", {
         campaign: selectedCampaign,
         reportData,
         pdfUrl: result?.url || "",
-        templateId: selectedTemplateId,
       });
     } catch (err) {
       setError(err.message || "Génération PDF impossible.");
@@ -185,38 +130,6 @@ export default function ReportingGenerateScreen({ navigation, route }) {
     >
       <Text style={styles.title}>Rapport PDF</Text>
       <Text style={styles.subtitle}>Sélectionnez une campagne et un template, puis générez le rapport</Text>
-
-      <Text style={styles.label}>Template du rapport</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.templatesScroll}>
-        {REPORT_TEMPLATES.map((t) => {
-          const selected = t.id === selectedTemplateId;
-          return (
-            <TouchableOpacity
-              key={t.id}
-              style={[styles.templateCard, selected && styles.templateCardSelected]}
-              onPress={() => setSelectedTemplateId(t.id)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.templateColors}>
-                {t.colors.map((c, i) => (
-                  <View key={i} style={[styles.templateColorDot, { backgroundColor: c }]} />
-                ))}
-              </View>
-              <TemplateModelPreview tpl={t} />
-              <Text style={[styles.templateName, selected && styles.templateNameSelected]}>{t.name}</Text>
-              <Text style={styles.templateMeta}>{`C:${t.cover}  S:${t.stats}  P:${t.panel}`}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      <TouchableOpacity
-        style={styles.templatePreviewButton}
-        onPress={() => navigation.navigate("ReportingTemplatePreview")}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.templatePreviewText}>Aperçu des pages</Text>
-      </TouchableOpacity>
 
       {!!error && (
         <View style={styles.errorCard}>
@@ -338,38 +251,6 @@ const styles = StyleSheet.create({
   content: { padding: theme.spacing.md, paddingBottom: theme.spacing.xxl },
   title: { fontSize: 24, fontWeight: "800", color: theme.colors.text, marginBottom: 4 },
   subtitle: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: theme.spacing.sm },
-  templatesScroll: { marginBottom: theme.spacing.sm },
-  templateCard: {
-    width: 124,
-    padding: theme.spacing.md,
-    marginRight: theme.spacing.sm,
-    borderRadius: theme.radius.lg,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    alignItems: "center",
-  },
-  templateCardSelected: { borderColor: theme.colors.accent, backgroundColor: theme.colors.primaryLight },
-  templateColors: { flexDirection: "row", gap: 6, marginBottom: 8 },
-  templateColorDot: { width: 20, height: 20, borderRadius: 10 },
-  modelBox: { width: 88, height: 52, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: "#fff", overflow: "hidden", marginBottom: 8, position: "relative" },
-  modelLeftBar: { width: 10, height: "100%" },
-  modelInnerCard: { position: "absolute", left: 16, top: 8, right: 8, bottom: 8, borderWidth: 1, borderRadius: 6 },
-  modelSplitLeft: { position: "absolute", left: 0, top: 0, bottom: 0, width: "40%" },
-  modelSplitLine: { position: "absolute", left: "40%", top: 0, bottom: 0, width: 2 },
-  modelTopRibbon: { position: "absolute", left: 0, right: 0, top: 0, height: 8 },
-  modelCenterCard: { position: "absolute", left: 14, right: 14, top: 10, bottom: 10, borderWidth: 1, borderRadius: 6 },
-  modelCenterLine: { position: "absolute", left: 20, right: 20, top: 24, height: 2 },
-  templateName: { fontSize: 11, fontWeight: "700", color: theme.colors.text, textAlign: "center" },
-  templateNameSelected: { color: theme.colors.accent },
-  templateMeta: { marginTop: 4, fontSize: 9, color: theme.colors.textMuted, textAlign: "center" },
-  templatePreviewButton: {
-    alignSelf: "flex-start",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginBottom: theme.spacing.lg,
-  },
-  templatePreviewText: { color: theme.colors.textMuted, fontWeight: "600", fontSize: 13 },
   label: { fontSize: 14, fontWeight: "600", color: theme.colors.textSecondary, marginBottom: theme.spacing.sm },
   chipsScroll: { marginBottom: theme.spacing.md },
   campaignChip: {

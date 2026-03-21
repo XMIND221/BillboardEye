@@ -1,5 +1,5 @@
 const { getPanneauReport, getProjetReport } = require("../services/rapport.service");
-const { generatePanneauPDF, generateProjetPDF, diagnosePhotoLoad, REPORT_TEMPLATES } = require("../services/pdf.service");
+const { generatePanneauPDF, generateProjetPDF, diagnosePhotoLoad } = require("../services/pdf.service");
 
 const MAX_PANELS_PER_REPORT = 500;
 const MAX_TEXT_LEN = 5000;
@@ -23,11 +23,6 @@ const sanitizeLongitude = (value) => {
   const n = Number(value);
   if (!Number.isFinite(n) || n < -180 || n > 180) return null;
   return n;
-};
-
-const sanitizeTemplateId = (value) => {
-  const candidate = String(value || "1");
-  return REPORT_TEMPLATES[candidate] ? candidate : "1";
 };
 
 const sanitizeOverrides = (overrides = {}) => {
@@ -282,8 +277,7 @@ const getProjetReportPDFUrlHandler = async (req, res) => {
   }
 
   try {
-    const templateId = sanitizeTemplateId(req.query.template);
-    const { url } = await generateProjetPDF(report, { template: templateId });
+    const { url } = await generateProjetPDF(report);
     const data = { url };
     if (req.query.debug === "1") {
       data.photoLoadResults = await diagnosePhotoLoad(report);
@@ -322,8 +316,7 @@ const getProjetReportPDFHandler = async (req, res) => {
   }
 
   try {
-    const templateId = sanitizeTemplateId(req.query.template);
-    const { buffer, fileName } = await generateProjetPDF(report, { template: templateId });
+    const { buffer, fileName } = await generateProjetPDF(report);
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename=${fileName}`);
     return res.status(200).send(buffer);
@@ -347,11 +340,10 @@ const previewProjetReportPDFHandler = async (req, res) => {
     return res.status(404).json({ success: false, message: "Campagne introuvable." });
   }
   try {
-    const templateId = sanitizeTemplateId(req.body?.templateId);
     const overrides = sanitizeOverrides(req.body?.overrides || {});
     const reportWithOverrides = applyProjetOverrides(report, overrides);
     const suffix = `preview-${Date.now()}`;
-    const { url } = await generateProjetPDF(reportWithOverrides, { template: templateId, suffix });
+    const { url } = await generateProjetPDF(reportWithOverrides, { suffix });
     return res.status(200).json({ success: true, data: { url } });
   } catch (error) {
     const statusCode = Number.isInteger(error?.statusCode) ? error.statusCode : 500;
@@ -371,30 +363,15 @@ const generateProjetReportFinalPDFHandler = async (req, res) => {
     return res.status(404).json({ success: false, message: "Campagne introuvable." });
   }
   try {
-    const templateId = sanitizeTemplateId(req.body?.templateId);
     const overrides = sanitizeOverrides(req.body?.overrides || {});
     const reportWithOverrides = applyProjetOverrides(report, overrides);
-    const { url } = await generateProjetPDF(reportWithOverrides, { template: templateId });
+    const { url } = await generateProjetPDF(reportWithOverrides);
     return res.status(200).json({ success: true, data: { url } });
   } catch (error) {
     const statusCode = Number.isInteger(error?.statusCode) ? error.statusCode : 500;
     console.error("[rapport] generateProjetReportFinalPDFHandler error:", error?.message || error);
     return res.status(statusCode).json({ success: false, message: statusCode === 400 ? error.message : "Erreur lors de la génération du PDF final." });
   }
-};
-
-const getTemplatesHandler = (req, res) => {
-  const templates = Object.values(REPORT_TEMPLATES).map((t) => ({
-    id: t.id,
-    name: t.name,
-    primary: t.primary,
-    accent: t.accent,
-    boxBg: t.boxBg,
-    coverLayout: t.coverLayout,
-    statsLayout: t.statsLayout,
-    panelLayout: t.panelLayout,
-  }));
-  return res.status(200).json({ success: true, data: templates });
 };
 
 module.exports = {
@@ -405,7 +382,6 @@ module.exports = {
   getProjetReportDebugHandler,
   getProjetReportPDFUrlHandler,
   getProjetReportPDFHandler,
-  getTemplatesHandler,
   previewProjetReportPDFHandler,
   generateProjetReportFinalPDFHandler,
 };

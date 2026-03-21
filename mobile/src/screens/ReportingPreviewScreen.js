@@ -7,7 +7,6 @@ import {
   Linking,
   ScrollView,
   Alert,
-  TouchableOpacity,
 } from "react-native";
 import { theme } from "../theme";
 import Button from "../components/Button";
@@ -140,14 +139,6 @@ export default function ReportingPreviewScreen({ route, navigation }) {
         </View>
       )}
 
-      <TouchableOpacity
-        style={styles.templateLink}
-        onPress={() => navigation.navigate("ReportingTemplatePreview")}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.templateLinkText}>Voir le template du rapport</Text>
-      </TouchableOpacity>
-
       <View style={styles.actions}>
         {editorPayload ? (
           <Button
@@ -235,13 +226,6 @@ const styles = StyleSheet.create({
   zoneName: { color: theme.colors.text, fontSize: 14, fontWeight: "600" },
   zoneMeta: { flexDirection: "row", marginTop: 4, gap: 12 },
   zoneMetaItem: { color: theme.colors.textSecondary, fontSize: 12 },
-  templateLink: {
-    alignSelf: "flex-start",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginBottom: theme.spacing.md,
-  },
-  templateLinkText: { color: theme.colors.accent, fontWeight: "600", fontSize: 14 },
   actions: { gap: theme.spacing.md },
   primaryButton: {},
   secondaryButton: {},

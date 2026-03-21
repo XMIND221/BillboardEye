@@ -6,7 +6,6 @@ import { previewProjetPDF } from "../services/api";
 export default function ReportingEditorScreen({ route, navigation }) {
   const campaign = route.params?.campaign || null;
   const reportData = route.params?.reportData || null;
-  const templateId = route.params?.templateId || "1";
 
   const [titreRapport, setTitreRapport] = useState(reportData?.projet?.titreRapport || reportData?.projet?.nom || "");
   const [entreprise, setEntreprise] = useState(reportData?.projet?.entreprise || "");
@@ -57,7 +56,6 @@ export default function ReportingEditorScreen({ route, navigation }) {
     setError("");
     try {
       const payload = {
-        templateId,
         overrides: {
           titreRapport,
           entreprise,
@@ -97,7 +95,6 @@ export default function ReportingEditorScreen({ route, navigation }) {
         },
         pdfUrl: result?.url || "",
         editorPayload: payload,
-        templateId,
       });
     } catch (err) {
       setError(err.message || "Impossible de générer l'aperçu.");

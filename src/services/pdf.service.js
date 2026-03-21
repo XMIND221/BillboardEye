@@ -1,6 +1,7 @@
 const PDFDocument = require("pdfkit");
 const supabase = require("../config/supabase");
 const { createClient } = require("@supabase/supabase-js");
+const puppeteer = require("puppeteer");
 const fetch = typeof globalThis.fetch === "function" ? globalThis.fetch : require("node-fetch");
 
 const PDF_BUCKET = process.env.PDF_BUCKET_NAME || "panneaux-pdf";
@@ -17,23 +18,13 @@ const BILLBOARD_EYE = {
   tagline: "Rapport premium généré par BillboardEye",
 };
 
-// 10 templates de rapport — palette + layout
-const REPORT_TEMPLATES = {
-  "1": { id: "1", name: "Begué Neo", primary: "#1A237E", accent: "#2C7A7B", boxBg: "#E0F2F1", muted: "#64748B", border: "#E2E8F0", coverLayout: "centerCard", statsLayout: "cardsGrid", panelLayout: "dualClassic" },
-  "2": { id: "2", name: "Corporate Grid", primary: "#1E293B", accent: "#2563EB", boxBg: "#EFF6FF", muted: "#64748B", border: "#E2E8F0", coverLayout: "leftBanner", statsLayout: "tableCompact", panelLayout: "dualClassic" },
-  "3": { id: "3", name: "Editorial", primary: "#3F3F46", accent: "#7C3AED", boxBg: "#F5F3FF", muted: "#71717A", border: "#E4E4E7", coverLayout: "splitHero", statsLayout: "sidebarKpi", panelLayout: "stacked" },
-  "4": { id: "4", name: "Field Ops", primary: "#111827", accent: "#EA580C", boxBg: "#FFF7ED", muted: "#6B7280", border: "#FED7AA", coverLayout: "topRibbon", statsLayout: "cardsGrid", panelLayout: "heroAthenB" },
-  "5": { id: "5", name: "Precision Green", primary: "#0F172A", accent: "#059669", boxBg: "#ECFDF5", muted: "#6B7280", border: "#A7F3D0", coverLayout: "centerCard", statsLayout: "sidebarKpi", panelLayout: "dualClassic" },
-  "6": { id: "6", name: "Night Pulse", primary: "#E5E7EB", accent: "#22D3EE", boxBg: "#1F2937", muted: "#9CA3AF", border: "#374151", coverLayout: "leftBanner", statsLayout: "cardsGrid", panelLayout: "stacked" },
-  "7": { id: "7", name: "Ivory Premium", primary: "#312E81", accent: "#DC2626", boxBg: "#FFFBEB", muted: "#78716C", border: "#F5E6B3", coverLayout: "splitHero", statsLayout: "tableCompact", panelLayout: "heroAthenB" },
-  "8": { id: "8", name: "Urban Mint", primary: "#134E4A", accent: "#0EA5E9", boxBg: "#F0FDFA", muted: "#475569", border: "#99F6E4", coverLayout: "topRibbon", statsLayout: "sidebarKpi", panelLayout: "dualClassic" },
-  "9": { id: "9", name: "Bold Agency", primary: "#18181B", accent: "#E11D48", boxBg: "#FFF1F2", muted: "#71717A", border: "#FECDD3", coverLayout: "leftBanner", statsLayout: "cardsGrid", panelLayout: "heroAthenB" },
-  "10": { id: "10", name: "Atlas Clean", primary: "#0C4A6E", accent: "#16A34A", boxBg: "#F0F9FF", muted: "#64748B", border: "#BAE6FD", coverLayout: "splitHero", statsLayout: "tableCompact", panelLayout: "stacked" },
-};
-
-const getTemplate = (id) => {
-  const key = String(id || "1");
-  return REPORT_TEMPLATES[key] || REPORT_TEMPLATES["1"];
+const REPORT_THEME = {
+  primary: "#111827",
+  accent: "#E11D48",
+  boxBg: "#F3F4F6",
+  muted: "#6B7280",
+  border: "#E5E7EB",
+  softBg: "#FAFAFA",
 };
 
 // ——— Design premium : constantes ———
@@ -135,46 +126,27 @@ const drawCoverPage = (doc, reportTitle, clientName, theme, logos = {}, duree = 
   doc.fillColor("#FFFFFF").rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT).fill();
 
   const title = (reportTitle || "").toUpperCase();
-  const layout = theme.coverLayout || "centerCard";
   const boxX = (PAGE_WIDTH - BOX_WIDTH) / 2;
   const boxY = PAGE_HEIGHT / 2 - BOX_HEIGHT / 2 - 40;
 
-  if (layout === "leftBanner") {
-    doc.fillColor(theme.accent).rect(0, 0, 54, PAGE_HEIGHT).fill();
-    doc.fillColor(theme.boxBg).rect(70, 90, PAGE_WIDTH - 120, 320).fill();
-    doc.strokeColor(theme.border).lineWidth(1).rect(70, 90, PAGE_WIDTH - 120, 320).stroke();
-    doc.fillColor(theme.primary).fontSize(36).font("Helvetica-Bold").text(title, 94, 170, { width: PAGE_WIDTH - 180 });
-    doc.font("Helvetica").fontSize(16).fillColor(theme.muted).text(`Client : ${clientName || "-"}`, 94, 280);
-    if (duree) doc.font("Helvetica-Bold").fontSize(13).fillColor(theme.accent).text(`Durée ${duree}`, 94, 312);
-  } else if (layout === "splitHero") {
-    doc.fillColor(theme.boxBg).rect(0, 0, PAGE_WIDTH * 0.42, PAGE_HEIGHT).fill();
-    doc.fillColor(theme.accent).rect(PAGE_WIDTH * 0.42 - 4, 0, 8, PAGE_HEIGHT).fill();
-    doc.fillColor(theme.primary).fontSize(30).font("Helvetica-Bold").text(title, PAGE_WIDTH * 0.46, 240, { width: PAGE_WIDTH * 0.46 });
-    doc.font("Helvetica").fontSize(14).fillColor(theme.muted).text(`Client : ${clientName || "-"}`, PAGE_WIDTH * 0.46, 330, { width: PAGE_WIDTH * 0.46 });
-    if (duree) doc.font("Helvetica-Bold").fontSize(13).fillColor(theme.accent).text(`Durée ${duree}`, PAGE_WIDTH * 0.46, 360, { width: PAGE_WIDTH * 0.46 });
-  } else if (layout === "topRibbon") {
-    doc.fillColor(theme.boxBg).rect(0, 0, PAGE_WIDTH, 220).fill();
-    doc.fillColor(theme.accent).rect(0, 0, PAGE_WIDTH, 18).fill();
-    doc.strokeColor(theme.accent).lineWidth(2).moveTo(90, 250).lineTo(PAGE_WIDTH - 90, 250).stroke();
-    doc.fillColor(theme.primary).fontSize(34).font("Helvetica-Bold").text(title, 70, 290, { width: PAGE_WIDTH - 140, align: "center" });
-    doc.font("Helvetica").fontSize(15).fillColor(theme.muted).text(`Client : ${clientName || "-"}`, 70, 380, { width: PAGE_WIDTH - 140, align: "center" });
-    if (duree) doc.font("Helvetica-Bold").fontSize(13).fillColor(theme.accent).text(`Durée ${duree}`, 70, 410, { width: PAGE_WIDTH - 140, align: "center" });
+  doc.fillColor(theme.accent).rect(0, 0, PAGE_WIDTH, 12).fill();
+  doc.fillColor(theme.boxBg).rect(MARGIN_X, 120, CONTENT_WIDTH, 2).fill();
+
+  doc.fillColor(theme.boxBg);
+  if (typeof doc.roundedRect === "function") {
+    doc.roundedRect(boxX, boxY, BOX_WIDTH, BOX_HEIGHT, BOX_RADIUS).fill();
   } else {
-    doc.fillColor(theme.boxBg);
-    if (typeof doc.roundedRect === "function") {
-      doc.roundedRect(boxX, boxY, BOX_WIDTH, BOX_HEIGHT, BOX_RADIUS).fill();
-    } else {
-      doc.rect(boxX, boxY, BOX_WIDTH, BOX_HEIGHT).fill();
-    }
-    doc.strokeColor(theme.accent).lineWidth(3).moveTo(boxX + 80, boxY + 50).lineTo(boxX + BOX_WIDTH - 80, boxY + 50).stroke();
-    doc.y = boxY + 70;
-    doc.fillColor(theme.primary).fontSize(28).font("Helvetica-Bold").text(title, boxX, doc.y, { width: BOX_WIDTH, align: "center" });
-    doc.y += 28;
-    doc.font("Helvetica").fontSize(14).fillColor(theme.primary).text(`Client : ${clientName || "-"}`, { width: PAGE_WIDTH, align: "center" });
-    if (duree) {
-      doc.y += 18;
-      doc.font("Helvetica").fontSize(13).fillColor(theme.accent).text(`Durée ${duree}`, { width: PAGE_WIDTH, align: "center" });
-    }
+    doc.rect(boxX, boxY, BOX_WIDTH, BOX_HEIGHT).fill();
+  }
+  doc.strokeColor(theme.border).lineWidth(1).roundedRect(boxX, boxY, BOX_WIDTH, BOX_HEIGHT, BOX_RADIUS).stroke();
+  doc.strokeColor(theme.accent).lineWidth(3).moveTo(boxX + 80, boxY + 50).lineTo(boxX + BOX_WIDTH - 80, boxY + 50).stroke();
+  doc.y = boxY + 70;
+  doc.fillColor(theme.primary).fontSize(26).font("Helvetica-Bold").text(title, boxX, doc.y, { width: BOX_WIDTH, align: "center" });
+  doc.y += 28;
+  doc.font("Helvetica").fontSize(14).fillColor(theme.primary).text(`Client : ${clientName || "-"}`, { width: PAGE_WIDTH, align: "center" });
+  if (duree) {
+    doc.y += 16;
+    doc.font("Helvetica").fontSize(13).fillColor(theme.accent).text(`Durée ${duree}`, { width: PAGE_WIDTH, align: "center" });
   }
 
   doc.y = PAGE_HEIGHT - FOOTER_H - 30;
@@ -182,7 +154,7 @@ const drawCoverPage = (doc, reportTitle, clientName, theme, logos = {}, duree = 
 };
 
 const drawStatsPage = (doc, projet, summary, zones, mapBuffer, theme) => {
-  doc.fillColor("#FFFFFF").rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT).fill();
+  doc.fillColor(theme.softBg).rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT).fill();
   doc.y = MARGIN_Y;
   doc.fontSize(FONT_SECTION).font("Helvetica-Bold").fillColor(theme.primary).text("Résultats terrain", MARGIN_X, doc.y);
   doc.y += 8;
@@ -194,43 +166,16 @@ const drawStatsPage = (doc, projet, summary, zones, mapBuffer, theme) => {
     { label: "Complétés", value: String(summary.completed) },
     { label: "Restants", value: String(summary.remaining) },
   ];
-  const statsLayout = theme.statsLayout || "cardsGrid";
-  if (statsLayout === "tableCompact") {
-    const rowY = doc.y;
-    doc.fillColor(theme.boxBg).rect(MARGIN_X, rowY, CONTENT_WIDTH, 92).fill();
-    doc.strokeColor(theme.border).lineWidth(0.7).rect(MARGIN_X, rowY, CONTENT_WIDTH, 92).stroke();
-    const cellW = CONTENT_WIDTH / 3;
-    stats.forEach((s, i) => {
-      const x = MARGIN_X + i * cellW;
-      if (i > 0) doc.strokeColor(theme.border).lineWidth(0.5).moveTo(x, rowY).lineTo(x, rowY + 92).stroke();
-      doc.font("Helvetica-Bold").fontSize(34).fillColor(theme.accent).text(s.value, x, rowY + 20, { width: cellW, align: "center" });
-      doc.font("Helvetica").fontSize(11).fillColor(theme.primary).text(s.label, x, rowY + 63, { width: cellW, align: "center" });
-    });
-    doc.y += 110;
-  } else if (statsLayout === "sidebarKpi") {
-    const sidebarX = PAGE_WIDTH - MARGIN_X - 140;
-    const baseY = doc.y;
-    stats.forEach((s, i) => {
-      const y = baseY + i * 88;
-      doc.fillColor(theme.boxBg).rect(sidebarX, y, 140, 76).fill();
-      doc.strokeColor(theme.border).lineWidth(0.6).rect(sidebarX, y, 140, 76).stroke();
-      doc.font("Helvetica-Bold").fontSize(30).fillColor(theme.accent).text(s.value, sidebarX, y + 12, { width: 140, align: "center" });
-      doc.font("Helvetica").fontSize(10).fillColor(theme.primary).text(s.label, sidebarX, y + 52, { width: 140, align: "center" });
-    });
-    doc.font("Helvetica").fontSize(12).fillColor(theme.muted).text("KPI", MARGIN_X, baseY + 6);
-    doc.y = baseY + 270;
-  } else {
-    const statW = (CONTENT_WIDTH - 32) / 3;
-    const statH = 82;
-    stats.forEach((s, i) => {
-      const x = MARGIN_X + i * (statW + 16);
-      doc.fillColor("#FFFFFF").rect(x + 2, doc.y + 2, statW, statH).fill();
-      doc.rect(x, doc.y, statW, statH).strokeColor(theme.border).lineWidth(0.5).stroke();
-      doc.fontSize(38).font("Helvetica-Bold").fillColor(theme.accent).text(s.value, x, doc.y + 18, { width: statW, align: "center" });
-      doc.fontSize(FONT_CAPTION).fillColor(theme.primary).text(s.label, x, doc.y + 62, { width: statW, align: "center" });
-    });
-    doc.y += statH + 28;
-  }
+  const statW = (CONTENT_WIDTH - 32) / 3;
+  const statH = 82;
+  stats.forEach((s, i) => {
+    const x = MARGIN_X + i * (statW + 16);
+    doc.fillColor("#FFFFFF").rect(x + 2, doc.y + 2, statW, statH).fill();
+    doc.rect(x, doc.y, statW, statH).strokeColor(theme.border).lineWidth(0.5).stroke();
+    doc.fontSize(38).font("Helvetica-Bold").fillColor(theme.accent).text(s.value, x, doc.y + 18, { width: statW, align: "center" });
+    doc.fontSize(FONT_CAPTION).fillColor(theme.primary).text(s.label, x, doc.y + 62, { width: statW, align: "center" });
+  });
+  doc.y += statH + 28;
 
   const gridY = doc.y;
   const leftCol = MARGIN_X;
@@ -285,6 +230,7 @@ const drawStatsPage = (doc, projet, summary, zones, mapBuffer, theme) => {
 
 const drawPhotoPair = (doc, faceABuf, faceBBuf, zoneName, gps, theme, observationsA = "", observationsB = "") => {
   doc.fillColor("#FFFFFF").rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT).fill();
+  doc.fillColor(theme.accent).rect(0, 0, PAGE_WIDTH, 6).fill();
   doc.y = MARGIN_Y;
 
   doc.fontSize(22).font("Helvetica-Bold").fillColor(theme.primary).text("Panneau page", MARGIN_X, doc.y);
@@ -300,87 +246,260 @@ const drawPhotoPair = (doc, faceABuf, faceBBuf, zoneName, gps, theme, observatio
   doc.strokeColor(theme.accent).lineWidth(2).moveTo(MARGIN_X, doc.y).lineTo(MARGIN_X + 220, doc.y).stroke();
   doc.y += 24;
 
-  const panelLayout = theme.panelLayout || "dualClassic";
   const drawNoteLines = (x, y, width) => {
     doc.strokeColor(theme.border).lineWidth(0.3).moveTo(x, y).lineTo(x + width, y).stroke();
     doc.moveTo(x, y + 12).lineTo(x + width, y + 12).stroke();
     doc.moveTo(x, y + 24).lineTo(x + width, y + 24).stroke();
   };
 
-  if (panelLayout === "stacked") {
-    const frameW = CONTENT_WIDTH - 20;
-    const frameH = 170;
-    const leftX = MARGIN_X + 10;
-    const startY = doc.y;
-    const drawStackFrame = (buf, label, y) => {
-      doc.fontSize(11).font("Helvetica-Bold").fillColor(theme.primary).text(label, leftX, y - 16);
-      doc.strokeColor(theme.accent).lineWidth(1.2).rect(leftX, y, frameW, frameH).stroke();
-      if (buf) {
-        doc.image(buf, leftX + 6, y + 6, { width: frameW - 12, height: frameH - 12 });
-      } else {
-        doc.fillColor("#F8FAFC").rect(leftX + 6, y + 6, frameW - 12, frameH - 12).fill();
-      }
-    };
-    drawStackFrame(faceABuf, "FACE A", startY);
-    drawStackFrame(faceBBuf, "FACE B", startY + frameH + 30);
-    const notesY = startY + frameH * 2 + 70;
-    doc.fontSize(10).font("Helvetica-Bold").fillColor(theme.primary).text("Observations", leftX, notesY);
-    drawNoteLines(leftX, notesY + 14, frameW);
-  } else if (panelLayout === "heroAthenB") {
-    const topY = doc.y;
-    const heroW = CONTENT_WIDTH;
-    const heroH = 210;
-    doc.fontSize(12).font("Helvetica-Bold").fillColor(theme.primary).text("FACE A (PRINCIPALE)", MARGIN_X, topY - 18);
-    doc.strokeColor(theme.accent).lineWidth(1.6).rect(MARGIN_X, topY, heroW, heroH).stroke();
-    if (faceABuf) {
-      doc.image(faceABuf, MARGIN_X + 8, topY + 8, { width: heroW - 16, height: heroH - 16 });
+  const halfW = (CONTENT_WIDTH - IMG_GAP) / 2;
+  const imgW = Math.min(IMG_SIZE, halfW - 8);
+  const imgH = (imgW * 3) / 4;
+  const framePad = 8;
+  const startY = doc.y;
+  const leftX = MARGIN_X;
+  const rightX = MARGIN_X + halfW + IMG_GAP;
+  doc.fontSize(12).font("Helvetica-Bold").fillColor(theme.primary).text("FACE A", leftX, startY - 20, { width: halfW, align: "center" });
+  doc.fontSize(12).font("Helvetica-Bold").fillColor(theme.primary).text("FACE B", rightX, startY - 20, { width: halfW, align: "center" });
+  const drawPhotoFrame = (x, buf, label) => {
+    doc.strokeColor(theme.accent).lineWidth(1.5).rect(x, startY, imgW + framePad * 2, imgH + framePad * 2).stroke();
+    if (buf) {
+      doc.image(buf, x + framePad, startY + framePad, { width: imgW, height: imgH });
+    } else {
+      doc.fillColor("#F1F5F9").rect(x + framePad, startY + framePad, imgW, imgH).fill();
+      doc.fontSize(FONT_CAPTION).fillColor(theme.muted).text(`[Insérer photo ${label} ici]`, x, startY + imgH / 2 + framePad - 6, { width: imgW + framePad * 2, align: "center" });
     }
-    const secondY = topY + heroH + 36;
-    doc.fontSize(12).font("Helvetica-Bold").fillColor(theme.primary).text("FACE B", MARGIN_X, secondY - 18);
-    doc.strokeColor(theme.accent).lineWidth(1.2).rect(MARGIN_X, secondY, CONTENT_WIDTH * 0.58, 125).stroke();
-    if (faceBBuf) {
-      doc.image(faceBBuf, MARGIN_X + 6, secondY + 6, { width: CONTENT_WIDTH * 0.58 - 12, height: 113 });
+  };
+  drawPhotoFrame(leftX, faceABuf, "Face A");
+  drawPhotoFrame(rightX, faceBBuf, "Face B");
+  doc.y = startY + imgH + framePad * 2 + 28;
+  doc.fontSize(10).font("Helvetica-Bold").fillColor(theme.primary).text("Observations / Notes - Face A :", leftX, doc.y);
+  drawNoteLines(leftX, doc.y + 14, halfW);
+  doc.fontSize(10).font("Helvetica-Bold").fillColor(theme.primary).text("Observations / Notes - Face B :", rightX, doc.y);
+  drawNoteLines(rightX, doc.y + 14, halfW);
+};
+
+const drawClosingPage = (doc, projet, theme) => {
+  doc.fillColor("#FFFFFF").rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT).fill();
+  doc.fillColor(theme.accent).rect(0, 0, PAGE_WIDTH, 14).fill();
+  doc.fillColor(theme.boxBg).rect(MARGIN_X, 180, CONTENT_WIDTH, 260).fill();
+  doc.strokeColor(theme.border).lineWidth(1).rect(MARGIN_X, 180, CONTENT_WIDTH, 260).stroke();
+
+  doc.font("Helvetica-Bold").fontSize(34).fillColor(theme.accent).text("BILLBOARDEYE", MARGIN_X, 250, {
+    width: CONTENT_WIDTH,
+    align: "center",
+  });
+  doc.font("Helvetica").fontSize(15).fillColor(theme.primary).text("Merci pour votre confiance.", MARGIN_X, 304, {
+    width: CONTENT_WIDTH,
+    align: "center",
+  });
+  doc.font("Helvetica").fontSize(12).fillColor(theme.muted).text(`Client: ${projet?.entreprise || "-"}`, MARGIN_X, 338, {
+    width: CONTENT_WIDTH,
+    align: "center",
+  });
+  doc.font("Helvetica").fontSize(10).fillColor(theme.muted).text(BILLBOARD_EYE.tagline, MARGIN_X, 400, {
+    width: CONTENT_WIDTH,
+    align: "center",
+  });
+};
+
+const escapeHtml = (value = "") =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+const inferMimeType = (buffer) => {
+  if (!buffer || buffer.length < 4) return "image/jpeg";
+  const h = buffer.subarray(0, 4).toString("hex");
+  if (h.startsWith("89504e47")) return "image/png";
+  if (h.startsWith("47494638")) return "image/gif";
+  if (h.startsWith("ffd8")) return "image/jpeg";
+  return "image/jpeg";
+};
+
+const toDataUri = (buffer) => {
+  if (!buffer) return "";
+  return `data:${inferMimeType(buffer)};base64,${buffer.toString("base64")}`;
+};
+
+const formatReportDate = (date) => {
+  if (!date) return "Non renseignée";
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return String(date);
+  return d.toLocaleDateString("fr-FR");
+};
+
+const formatTime = (raw) => {
+  if (!raw) return "--:--";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return "--:--";
+  return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+};
+
+const buildProjetReportHtml = ({ projet, summary, zonesCount, zonesHtml, visualDataUri }) => {
+  return `<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(projet.titreRapport || projet.nom || "Rapport Campagne")}</title>
+  <style>
+    :root {
+      --primary: #e11d48;
+      --bg: #ffffff;
+      --secondary: #f9fafb;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --text: #111827;
     }
-    const notesX = MARGIN_X + CONTENT_WIDTH * 0.62;
-    doc.fontSize(10).font("Helvetica-Bold").fillColor(theme.primary).text("Notes", notesX, secondY);
-    drawNoteLines(notesX, secondY + 18, CONTENT_WIDTH * 0.38);
-  } else {
-    const halfW = (CONTENT_WIDTH - IMG_GAP) / 2;
-    const imgW = Math.min(IMG_SIZE, halfW - 8);
-    const imgH = (imgW * 3) / 4;
-    const framePad = 8;
-    const startY = doc.y;
-    const leftX = MARGIN_X;
-    const rightX = MARGIN_X + halfW + IMG_GAP;
-    doc.fontSize(12).font("Helvetica-Bold").fillColor(theme.primary).text("FACE A", leftX, startY - 20, { width: halfW, align: "center" });
-    doc.fontSize(12).font("Helvetica-Bold").fillColor(theme.primary).text("FACE B", rightX, startY - 20, { width: halfW, align: "center" });
-    const drawPhotoFrame = (x, buf, label) => {
-      doc.strokeColor(theme.accent).lineWidth(1.5).rect(x, startY, imgW + framePad * 2, imgH + framePad * 2).stroke();
-      if (buf) {
-        doc.image(buf, x + framePad, startY + framePad, { width: imgW, height: imgH });
-      } else {
-        doc.fillColor("#F1F5F9").rect(x + framePad, startY + framePad, imgW, imgH).fill();
-        doc.fontSize(FONT_CAPTION).fillColor(theme.muted).text(`[Insérer photo ${label} ici]`, x, startY + imgH / 2 + framePad - 6, { width: imgW + framePad * 2, align: "center" });
-      }
-    };
-    drawPhotoFrame(leftX, faceABuf, "Face A");
-    drawPhotoFrame(rightX, faceBBuf, "Face B");
-    doc.y = startY + imgH + framePad * 2 + 28;
-    doc.fontSize(10).font("Helvetica-Bold").fillColor(theme.primary).text("Observations / Notes - Face A :", leftX, doc.y);
-    drawNoteLines(leftX, doc.y + 14, halfW);
-    doc.fontSize(10).font("Helvetica-Bold").fillColor(theme.primary).text("Observations / Notes - Face B :", rightX, doc.y);
-    drawNoteLines(rightX, doc.y + 14, halfW);
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; font-family: Inter, Arial, sans-serif; color: var(--text); background: var(--bg); }
+    .page { min-height: 100vh; width: 100%; page-break-after: always; }
+    .page:last-child { page-break-after: auto; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 64px 48px; }
+    .eyebrow { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .2em; color: var(--primary); font-weight: 600; }
+    .title { margin: 0; font-size: 48px; line-height: 1.1; font-weight: 700; }
+    .subtitle { margin: 12px 0 0; color: var(--muted); font-size: 15px; }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 56px; }
+    .brand-box { width: 44px; height: 44px; border-radius: 12px; background: var(--primary); }
+    .brand-name { font-size: 28px; font-weight: 700; letter-spacing: -.02em; }
+    .cover-top-accent { height: 6px; width: 100%; background: var(--primary); }
+    .date-chip { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; background: var(--secondary); margin-top: 24px; }
+    .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--primary); }
+    .summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin: 24px 0 28px; }
+    .card { background: var(--secondary); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+    .stat-value { font-size: 42px; font-weight: 700; color: var(--primary); margin: 8px 0 4px; }
+    .stat-label { font-size: 13px; color: var(--muted); }
+    .meta-table { width: 100%; border-collapse: collapse; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #fff; }
+    .meta-table td { border-bottom: 1px solid var(--border); padding: 12px 14px; font-size: 13px; }
+    .meta-table tr:last-child td { border-bottom: none; }
+    .meta-label { color: var(--muted); width: 220px; }
+    .zone-page { background: var(--secondary); }
+    .zone-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+    .zone-head { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding: 16px 20px; }
+    .zone-index { width: 30px; height: 30px; border-radius: 8px; background: var(--primary); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; margin-right: 10px; }
+    .zone-name { font-size: 20px; font-weight: 700; }
+    .zone-meta { font-size: 12px; color: var(--muted); }
+    .faces { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 20px; }
+    .face-title { font-size: 13px; font-weight: 600; margin: 0 0 8px; }
+    .face-image { width: 100%; aspect-ratio: 4 / 3; border-radius: 12px; overflow: hidden; background: #f1f5f9; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 12px; }
+    .face-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .visual-box { position: relative; width: 100%; height: 62vh; border-radius: 0; overflow: hidden; background: #111827; }
+    .visual-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .visual-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.05) 0%, rgba(0,0,0,.58) 100%); }
+    .visual-caption { position: absolute; left: 48px; right: 48px; bottom: 34px; color: #fff; font-size: 28px; line-height: 1.2; font-weight: 600; max-width: 860px; }
+    .footer-center { display: flex; min-height: 100vh; align-items: center; justify-content: center; padding: 0 48px; position: relative; }
+    .footer-center::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 10px; background: var(--primary); }
+    .footer-card { background: var(--secondary); border: 1px solid var(--border); border-radius: 18px; padding: 54px 48px; width: 100%; max-width: 840px; text-align: center; }
+    .footer-brand { font-size: 42px; letter-spacing: .02em; margin: 0 0 14px; color: var(--primary); font-weight: 700; }
+    .footer-text { margin: 0; font-size: 17px; color: var(--text); }
+    .footer-mini { margin-top: 18px; color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <section class="page">
+    <div class="cover-top-accent"></div>
+    <div class="container" style="display:flex;flex-direction:column;justify-content:center;min-height:calc(100vh - 6px);">
+      <div class="brand">
+        <div class="brand-box"></div>
+        <div class="brand-name">BillboardEye</div>
+      </div>
+      <p class="eyebrow">Rapport de campagne</p>
+      <h1 class="title">${escapeHtml(projet.titreRapport || projet.nom || "Rapport Campagne")}</h1>
+      <p class="subtitle">Client : ${escapeHtml(projet.entreprise || "-")}</p>
+      <div class="date-chip">
+        <span class="dot"></span>
+        <span style="font-size:13px;color:var(--muted);">${escapeHtml(formatReportDate(projet.date))}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="container">
+      <p class="eyebrow">Aperçu</p>
+      <h2 style="margin:0;font-size:34px;line-height:1.2;">Résumé de la campagne</h2>
+      <div class="summary-grid">
+        <div class="card"><div class="stat-value">${escapeHtml(String(zonesCount))}</div><div class="stat-label">zones couvertes</div></div>
+        <div class="card"><div class="stat-value">${escapeHtml(String(summary.total || 0))}</div><div class="stat-label">panneaux actifs</div></div>
+        <div class="card"><div class="stat-value">${escapeHtml(projet.duree || "N/R")}</div><div class="stat-label">durée de campagne</div></div>
+      </div>
+      <table class="meta-table">
+        <tr><td class="meta-label">Client</td><td>${escapeHtml(projet.entreprise || "-")}</td></tr>
+        <tr><td class="meta-label">Campagne</td><td>${escapeHtml(projet.nom || "-")}</td></tr>
+        <tr><td class="meta-label">Date</td><td>${escapeHtml(formatReportDate(projet.date))}</td></tr>
+        <tr><td class="meta-label">Agent</td><td>${escapeHtml(projet.assignedAgent || "-")}</td></tr>
+      </table>
+    </div>
+  </section>
+
+  ${zonesHtml}
+
+  <section class="page">
+    <div class="visual-box">
+      ${visualDataUri ? `<img src="${visualDataUri}" alt="Visual campagne" />` : ""}
+      <div class="visual-overlay"></div>
+      <div class="visual-caption">Une visibilité maximale dans les zones à fort trafic.</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="footer-center">
+      <div class="footer-card">
+        <h3 class="footer-brand">BILLBOARDEYE</h3>
+        <p class="footer-text">Rapport professionnel généré automatiquement.</p>
+        <p class="footer-mini">Rapport premium généré par BillboardEye</p>
+      </div>
+    </div>
+  </section>
+</body>
+</html>`;
+};
+
+const getPuppeteerLaunchOptions = () => {
+  const args = [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--font-render-hinting=medium",
+  ];
+  const opts = {
+    headless: true,
+    args,
+  };
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    opts.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+  return opts;
+};
+
+const generatePDF = async (html) => {
+  const browser = await puppeteer.launch(getPuppeteerLaunchOptions());
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1240, height: 1754, deviceScaleFactor: 2 });
+    await page.setContent(html, { waitUntil: "networkidle0" });
+    return await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: { top: "0", right: "0", bottom: "0", left: "0" },
+      preferCSSPageSize: true,
+    });
+  } finally {
+    await browser.close();
   }
 };
 
 
-const createPanneauPDFBuffer = async (rapport, templateId = "1") => {
+const createPanneauPDFBuffer = async (rapport) => {
   const { panneau, photos } = rapport;
   const [faceABuf, faceBBuf] = await Promise.all([
     photos?.faceA?.url ? fetchImageAsBuffer(photos.faceA.url) : null,
     photos?.faceB?.url ? fetchImageAsBuffer(photos.faceB.url) : null,
   ]);
-  const theme = getTemplate(templateId);
+  const theme = REPORT_THEME;
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 0, size: "A4" });
@@ -404,78 +523,66 @@ const createPanneauPDFBuffer = async (rapport, templateId = "1") => {
   });
 };
 
-const createProjetPDFBuffer = async (report, templateId = "1") => {
+const createProjetPDFBuffer = async (report) => {
   const { projet, panneaux, summary } = report;
-  const theme = getTemplate(templateId);
-  const reportTitle = projet.titreRapport || projet.nom || "Rapport Campagne";
-  const zones = String(projet.zone || "")
-    .split(/[;,/|]/)
-    .map((v) => v.trim())
-    .filter(Boolean);
+  const zonesCount = (panneaux || []).length;
 
-  const [logoBuffers, mapBuffer] = await Promise.all([
-    Promise.all([
-      projet.clientLogoUrl ? fetchImageAsBuffer(projet.clientLogoUrl) : null,
-      projet.entrepriseLogoUrl ? fetchImageAsBuffer(projet.entrepriseLogoUrl) : null,
-    ]),
-    fetchStaticMapBuffer(panneaux),
-  ]);
-  const logos = {
-    client: logoBuffers[0] || null,
-    entreprise: logoBuffers[1] || null,
-  };
+  const preparedZones = [];
+  for (let index = 0; index < (panneaux || []).length; index += 1) {
+    const panneau = panneaux[index];
+    const [faceABuffer, faceBBuffer] = await Promise.all([
+      panneau.photos?.faceA?.url ? fetchImageAsBuffer(panneau.photos.faceA.url) : null,
+      panneau.photos?.faceB?.url ? fetchImageAsBuffer(panneau.photos.faceB.url) : null,
+    ]);
+    preparedZones.push({
+      idx: index + 1,
+      name: panneau.localisation?.adresse || `Zone ${index + 1}`,
+      gps: formatGps(panneau.localisation?.latitude, panneau.localisation?.longitude),
+      timestamp: formatTime(panneau.photos?.faceA?.createdAt || panneau.photos?.faceB?.createdAt),
+      faceA: toDataUri(faceABuffer),
+      faceB: toDataUri(faceBBuffer),
+    });
+  }
 
-  const totalPages = 2 + panneaux.length;
+  const zonesHtml = preparedZones
+    .map(
+      (zone) => `<section class="page zone-page">
+    <div class="container">
+      <p class="eyebrow">Détails</p>
+      <h2 style="margin:0 0 22px;font-size:34px;line-height:1.2;">Zones de la campagne</h2>
+      <article class="zone-card">
+        <div class="zone-head">
+          <div>
+            <span class="zone-index">${String(zone.idx).padStart(2, "0")}</span>
+            <span class="zone-name">${escapeHtml(zone.name)}</span>
+          </div>
+          <div class="zone-meta">GPS: ${escapeHtml(zone.gps)} &nbsp;&nbsp;•&nbsp;&nbsp; Heure: ${escapeHtml(zone.timestamp)}</div>
+        </div>
+        <div class="faces">
+          <div>
+            <p class="face-title">Face A</p>
+            <div class="face-image">${zone.faceA ? `<img src="${zone.faceA}" alt="Face A" />` : "Photo indisponible"}</div>
+          </div>
+          <div>
+            <p class="face-title">Face B</p>
+            <div class="face-image">${zone.faceB ? `<img src="${zone.faceB}" alt="Face B" />` : "Photo indisponible"}</div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>`
+    )
+    .join("\n");
 
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 0, size: "A4" });
-    doc.info.Title = reportTitle;
-    doc.info.Author = BILLBOARD_EYE.name;
-    doc.info.CreationDate = new Date();
-    doc.info.Subject = `Rapport campagne ${projet.entreprise}`;
-    const chunks = [];
-    let pageNum = 1;
-    doc.on("data", (chunk) => chunks.push(chunk));
-    doc.on("error", reject);
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
-
-    const render = async () => {
-      // 1. Couverture
-      drawCoverPage(doc, reportTitle, projet.entreprise, theme, logos, projet.duree || "");
-      addFooter(doc, pageNum++, totalPages, theme);
-
-      // 2. Résultats terrain
-      doc.addPage({ margin: 0 });
-      drawStatsPage(doc, projet, summary, zones, mapBuffer, theme);
-      addFooter(doc, pageNum++, totalPages, theme);
-
-      // 3+. Panneaux — traitement progressif pour 100+ panneaux
-      for (let index = 0; index < panneaux.length; index += 1) {
-        const panneau = panneaux[index];
-        const [faceA, faceB] = await Promise.all([
-          panneau.photos?.faceA?.url ? fetchImageAsBuffer(panneau.photos.faceA.url) : null,
-          panneau.photos?.faceB?.url ? fetchImageAsBuffer(panneau.photos.faceB.url) : null,
-        ]);
-        doc.addPage({ margin: 0 });
-        const zoneName = panneau.localisation?.adresse || `Zone ${index + 1}`;
-        const obsA = panneau.observationsFaceA || "";
-        const obsB = panneau.observationsFaceB || "";
-        drawPhotoPair(
-          doc,
-          faceA,
-          faceB,
-          `${index + 1}. ${zoneName}`,
-          formatGps(panneau.localisation?.latitude, panneau.localisation?.longitude),
-          theme,
-          obsA,
-          obsB
-        );
-        addFooter(doc, pageNum++, totalPages, theme);
-      }
-    };
-
-    render().then(() => doc.end()).catch(reject);
+  const visualDataUri = preparedZones.find((z) => z.faceA)?.faceA || preparedZones.find((z) => z.faceB)?.faceB || "";
+  const html = buildProjetReportHtml({
+    projet,
+    summary,
+    zonesCount,
+    zonesHtml,
+    visualDataUri,
   });
+  return generatePDF(html);
 };
 
 const uploadPDFToSupabase = async (buffer, fileName) => {
@@ -507,10 +614,9 @@ const generatePanneauPDF = async (rapport, options = {}) => {
 };
 
 const generateProjetPDF = async (report, options = {}) => {
-  const templateId = options.template || "1";
   const suffix = options.suffix || "";
   const fileName = options.fileName || buildPdfFileName("projet", report.projet.id, suffix);
-  const buffer = await createProjetPDFBuffer(report, templateId);
+  const buffer = await createProjetPDFBuffer(report);
   const url = await uploadPDFToSupabase(buffer, fileName);
   return { buffer, fileName, url };
 };
@@ -540,6 +646,4 @@ module.exports = {
   generatePanneauPDF,
   generateProjetPDF,
   diagnosePhotoLoad,
-  REPORT_TEMPLATES,
-  getTemplate,
 };

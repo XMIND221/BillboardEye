@@ -69,9 +69,8 @@ export const getRapport = async (panneauId) => {
   return apiRequest(`/rapport/panneau/${panneauId}`);
 };
 
-export const getProjetPDFUrl = async (projetId, templateId = "1") => {
-  const q = templateId ? `?template=${encodeURIComponent(templateId)}` : "";
-  return apiRequest(`/rapport/projet/${projetId}/pdf-url${q}`);
+export const getProjetPDFUrl = async (projetId) => {
+  return apiRequest(`/rapport/projet/${projetId}/pdf-url`);
 };
 
 export const previewProjetPDF = async (projetId, payload) => {
@@ -88,10 +87,6 @@ export const generateProjetPDFFinal = async (projetId, payload) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload || {}),
   });
-};
-
-export const getReportTemplates = async () => {
-  return apiRequest("/rapport/templates");
 };
 
 export const getProjetReport = async (projetId) => {

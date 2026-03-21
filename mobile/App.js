@@ -21,7 +21,6 @@ import UploadPanneauScreen from "./src/screens/UploadPanneauScreen";
 import ReportingGenerateScreen from "./src/screens/ReportingGenerateScreen";
 import ReportingEditorScreen from "./src/screens/ReportingEditorScreen";
 import ReportingPreviewScreen from "./src/screens/ReportingPreviewScreen";
-import ReportingTemplatePreviewScreen from "./src/screens/ReportingTemplatePreviewScreen";
 import { clearUserRole, getUserRole, saveUserRole } from "./src/services/projectStorage";
 
 const RootStack = createNativeStackNavigator();
@@ -152,11 +151,6 @@ function ReportingNavigator({ onSwitchRole, onSignOut, userEmail }) {
         name="ReportingPreview"
         component={ReportingPreviewScreen}
         options={{ title: "Aperçu PDF", headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}
-      />
-      <ReportingStack.Screen
-        name="ReportingTemplatePreview"
-        component={ReportingTemplatePreviewScreen}
-        options={{ title: "Template rapport", headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}
       />
     </ReportingStack.Navigator>
   );

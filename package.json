@@ -17,6 +17,9 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.2",
     "cors": "^2.8.6",
@@ -25,7 +28,8 @@
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",
     "node-fetch": "^2.7.0",
-    "pdfkit": "^0.18.0"
+    "pdfkit": "^0.18.0",
+    "puppeteer": "^24.15.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

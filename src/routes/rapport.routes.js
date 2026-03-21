@@ -7,14 +7,12 @@ const {
   getProjetReportDebugHandler,
   getProjetReportPDFUrlHandler,
   getProjetReportPDFHandler,
-  getTemplatesHandler,
   previewProjetReportPDFHandler,
   generateProjetReportFinalPDFHandler,
 } = require("../controllers/rapport.controller");
 
 const router = express.Router();
 
-router.get("/templates", getTemplatesHandler);
 router.get("/panneau/:id", getPanneauReportHandler);
 router.get("/panneau/:id/pdf", getPanneauReportPDFHandler);
 router.get("/panneau/:id/pdf-url", getPanneauReportPDFUrlHandler);
