@@ -42,7 +42,7 @@ if (isProd && corsOrigins.length === 0) {
   console.warn("[CORS] Aucune origine configurée. Définissez CORS_ORIGINS ou ADMIN_WEB_URL/MOBILE_WEB_URL.");
 }
 
-app.use(express.json());
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "50mb" }));
 app.use(
   cors({
     origin(origin, callback) {

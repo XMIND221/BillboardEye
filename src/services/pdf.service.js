@@ -492,6 +492,77 @@ const generatePDF = async (html) => {
   }
 };
 
+const getPdfInternalSecret = () =>
+  process.env.PDF_RENDER_INTERNAL_SECRET ||
+  (process.env.NODE_ENV !== "production" ? "dev-pdf-render-internal-secret" : "");
+
+const getInternalApiBase = () => {
+  const port = process.env.PORT || 5000;
+  return (process.env.BILLBOARD_API_INTERNAL_URL || `http://127.0.0.1:${port}`).replace(/\/$/, "");
+};
+
+const getReportRendererBase = () =>
+  (process.env.REPORT_RENDERER_BASE_URL || "http://127.0.0.1:3001").replace(/\/$/, "");
+
+const createPdfRenderSession = async (report) => {
+  const secret = getPdfInternalSecret();
+  if (!secret) return null;
+  const apiBase = getInternalApiBase();
+  const res = await fetch(`${apiBase}/api/internal/pdf-render-session`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-pdf-internal": secret,
+    },
+    body: JSON.stringify(report),
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`Session PDF render ${res.status}: ${t.slice(0, 240)}`);
+  }
+  const json = await res.json();
+  return json?.data?.token || null;
+};
+
+const generatePDFFromUrl = async (url) => {
+  const browser = await puppeteer.launch(getPuppeteerLaunchOptions());
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1240, height: 1754, deviceScaleFactor: 2 });
+    await page.goto(url, { waitUntil: "networkidle0", timeout: 180000 });
+    return await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: { top: "0", right: "0", bottom: "0", left: "0" },
+      preferCSSPageSize: true,
+    });
+  } finally {
+    await browser.close();
+  }
+};
+
+/** PDF via l’app Next tmp_v0_template (même rendu que l’UI). Retourne null si désactivé ou en échec. */
+const generateProjetPdfViaNextTemplate = async (report) => {
+  if (process.env.DISABLE_NEXT_PDF_RENDERER === "true") return null;
+  const secret = getPdfInternalSecret();
+  if (!secret) return null;
+  let token;
+  try {
+    token = await createPdfRenderSession(report);
+  } catch (e) {
+    console.warn("[pdf] session Next:", e?.message || e);
+    return null;
+  }
+  if (!token) return null;
+  const url = `${getReportRendererBase()}/rapport/render?token=${encodeURIComponent(token)}`;
+  try {
+    return await generatePDFFromUrl(url);
+  } catch (e) {
+    console.warn("[pdf] Puppeteer URL Next:", e?.message || e);
+    return null;
+  }
+};
+
 
 const createPanneauPDFBuffer = async (rapport) => {
   const { panneau, photos } = rapport;
@@ -523,7 +594,8 @@ const createPanneauPDFBuffer = async (rapport) => {
   });
 };
 
-const createProjetPDFBuffer = async (report) => {
+/** Fallback : HTML inline (sans Next) si le renderer v0 n’est pas disponible. */
+const createProjetPDFBufferLegacy = async (report) => {
   const { projet, panneaux, summary } = report;
   const zonesCount = (panneaux || []).length;
 
@@ -583,6 +655,12 @@ const createProjetPDFBuffer = async (report) => {
     visualDataUri,
   });
   return generatePDF(html);
+};
+
+const createProjetPDFBuffer = async (report) => {
+  const viaNext = await generateProjetPdfViaNextTemplate(report);
+  if (viaNext && viaNext.length > 0) return viaNext;
+  return createProjetPDFBufferLegacy(report);
 };
 
 const uploadPDFToSupabase = async (buffer, fileName) => {

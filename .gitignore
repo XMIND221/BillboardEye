@@ -1,6 +1,8 @@
 node_modules/
 mobile/node_modules/
 admin/node_modules/
+tmp_v0_template/node_modules/
+tmp_v0_template/.next/
 
 dist/
 admin/dist/
@@ -13,9 +15,6 @@ uploads/
 .expo/
 .DS_Store
 *.log
-
-# Référence UI Next.js — ne pas versionner (allège clone + build Docker)
-tmp_v0_template/
 
 # Fichiers parasites souvent créés par erreur sous Windows
 /del

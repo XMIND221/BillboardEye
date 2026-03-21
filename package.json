@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node scripts/start-with-renderer.js",
+    "start:api-only": "node server.js",
     "dev": "nodemon server.js",
     "diagnose-pdf": "node scripts/diagnose-pdf.js",
     "mobile:start": "npm --prefix mobile run start",

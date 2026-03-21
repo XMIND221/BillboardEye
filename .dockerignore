@@ -10,4 +10,5 @@ admin
 .cursor
 coverage
 .vscode
-tmp_v0_template
+tmp_v0_template/node_modules
+tmp_v0_template/.next

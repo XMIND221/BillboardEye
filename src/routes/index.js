@@ -13,6 +13,7 @@ const router = express.Router();
 
 router.use("/", testRoutes);
 router.use("/auth", authRoutes);
+router.use("/internal", require("./internal-pdf-render.routes"));
 router.use(authMiddleware);
 router.use("/upload", uploadRoutes);
 router.use("/panneaux", panneauxRoutes);
