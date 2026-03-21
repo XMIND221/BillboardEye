@@ -12,3 +12,4 @@ coverage
 .vscode
 tmp_v0_template/node_modules
 tmp_v0_template/.next
+v0_ui_import

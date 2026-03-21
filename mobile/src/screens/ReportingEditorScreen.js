@@ -14,6 +14,8 @@ export default function ReportingEditorScreen({ route, navigation }) {
   const [zone, setZone] = useState(reportData?.projet?.zone || "");
   const [assignedAgent, setAssignedAgent] = useState(reportData?.projet?.assignedAgent || "");
   const [instructions, setInstructions] = useState(reportData?.projet?.instructions || "");
+  const [legendeVisuelle, setLegendeVisuelle] = useState(reportData?.projet?.legendeVisuelle || "");
+  const [legendeCarte, setLegendeCarte] = useState(reportData?.projet?.legendeCarte || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [visibleCount, setVisibleCount] = useState(20);
@@ -64,6 +66,8 @@ export default function ReportingEditorScreen({ route, navigation }) {
           zone,
           assignedAgent,
           instructions,
+          legendeVisuelle,
+          legendeCarte,
           panneaux: panelOverrides.map((p, index) => ({
             id: p.id,
             enabled: p.enabled,
@@ -106,7 +110,9 @@ export default function ReportingEditorScreen({ route, navigation }) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Éditer le rapport</Text>
-      <Text style={styles.subtitle}>Modifiez les champs avant la génération finale.</Text>
+      <Text style={styles.subtitle}>
+        Chaque champ correspond au contenu du PDF (couverture, résumé, photo pleine page, zones).
+      </Text>
 
       {!!error && (
         <View style={styles.errorCard}>
@@ -115,20 +121,54 @@ export default function ReportingEditorScreen({ route, navigation }) {
       )}
 
       <View style={styles.card}>
-        <Text style={styles.label}>Titre du rapport</Text>
+        <Text style={styles.blockTitle}>Couverture</Text>
+        <Text style={styles.label}>Titre affiché (grand titre)</Text>
         <TextInput style={styles.input} value={titreRapport} onChangeText={setTitreRapport} />
-        <Text style={styles.label}>Client</Text>
+        <Text style={styles.label}>Client (« Client : … » sur le PDF)</Text>
         <TextInput style={styles.input} value={entreprise} onChangeText={setEntreprise} />
-        <Text style={styles.label}>Durée</Text>
-        <TextInput style={styles.input} value={duree} onChangeText={setDuree} />
-        <Text style={styles.label}>Date (YYYY-MM-DD)</Text>
-        <TextInput style={styles.input} value={date} onChangeText={setDate} />
-        <Text style={styles.label}>Zone(s)</Text>
-        <TextInput style={styles.input} value={zone} onChangeText={setZone} />
-        <Text style={styles.label}>Agent assigné</Text>
+        <Text style={styles.label}>Zone / périmètre (sous le client, optionnel)</Text>
+        <TextInput style={styles.input} value={zone} onChangeText={setZone} placeholder="Ex. Île-de-France" />
+        <Text style={styles.label}>Date de campagne</Text>
+        <TextInput style={styles.input} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.blockTitle}>Résumé (page statistiques)</Text>
+        <Text style={styles.label}>Durée affichée sur les cartes « durée de campagne »</Text>
+        <TextInput style={styles.input} value={duree} onChangeText={setDuree} placeholder="Ex. 3 mois" />
+        <Text style={styles.label}>Consignes & note (bloc texte sous les chiffres)</Text>
+        <TextInput
+          style={[styles.input, styles.textarea]}
+          value={instructions}
+          onChangeText={setInstructions}
+          multiline
+          placeholder="Texte libre visible dans la section Résumé"
+        />
+        <Text style={styles.label}>Légende sous la carte illustrative du résumé</Text>
+        <TextInput
+          style={styles.input}
+          value={legendeCarte}
+          onChangeText={setLegendeCarte}
+          placeholder="Par défaut : Distribution géographique des panneaux"
+        />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.blockTitle}>Grande photo (avant le pied de page)</Text>
+        <Text style={styles.label}>Légende sur la photo pleine largeur</Text>
+        <TextInput
+          style={[styles.input, styles.textarea]}
+          value={legendeVisuelle}
+          onChangeText={setLegendeVisuelle}
+          multiline
+          placeholder="Texte en bas de la grande image"
+        />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.blockTitle}>Métadonnées</Text>
+        <Text style={styles.label}>Agent assigné (tableau résumé / suivi)</Text>
         <TextInput style={styles.input} value={assignedAgent} onChangeText={setAssignedAgent} />
-        <Text style={styles.label}>Instructions</Text>
-        <TextInput style={[styles.input, styles.textarea]} value={instructions} onChangeText={setInstructions} multiline />
       </View>
 
       <View style={styles.card}>
@@ -219,7 +259,9 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
   textarea: { minHeight: 86, textAlignVertical: "top" },
-  sectionTitle: { fontSize: 16, fontWeight: "700", color: theme.colors.text, marginBottom: 10 },
+  blockTitle: { fontSize: 15, fontWeight: "800", color: theme.colors.accent, marginBottom: 10 },
+  sectionTitle: { fontSize: 16, fontWeight: "700", color: theme.colors.text, marginBottom: 6 },
+  hint: { fontSize: 12, color: theme.colors.textSecondary, marginBottom: 10 },
   panelRow: { borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 10, marginTop: 10 },
   panelHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   moveRow: { flexDirection: "row", gap: 8, marginBottom: 8 },

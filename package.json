@@ -13,6 +13,8 @@
     "android": "npm --prefix mobile run android",
     "ios": "npm --prefix mobile run ios",
     "web": "npm --prefix mobile run web",
+    "ui:v0": "npm --prefix v0_ui_import run dev",
+    "ui:v0:build": "npm --prefix v0_ui_import run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

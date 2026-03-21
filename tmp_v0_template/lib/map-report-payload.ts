@@ -26,6 +26,10 @@ type ApiReport = {
   summary?: { total?: number }
 }
 
+const DEFAULT_VISUAL_CAPTION =
+  "Une visibilité maximale dans les zones à fort trafic."
+const DEFAULT_MAP_CAPTION = "Distribution géographique des panneaux"
+
 export function mapApiReportToCampaign(report: ApiReport) {
   const projet = report.projet || {}
   const panneaux = report.panneaux || []
@@ -50,17 +54,27 @@ export function mapApiReportToCampaign(report: ApiReport) {
     zones.find((z) => z.faceBImage !== PLACEHOLDER)?.faceBImage ||
     PLACEHOLDER
 
+  const legendeV = projet.legendeVisuelle ?? projet.legende_visuelle
+  const legendeC = projet.legendeCarte ?? projet.legende_carte
+  const instructions = projet.instructions ? String(projet.instructions).trim() : ""
+
   return {
     campaignName: String(projet.titreRapport || projet.nom || "Rapport campagne"),
     date: formatReportDate(projet.date),
     clientLine: projet.entreprise ? `Client : ${projet.entreprise}` : undefined,
+    /** Sous-titre optionnel (zone géographique) sous le client sur la couverture */
+    zoneLine: projet.zone ? String(projet.zone).trim() : undefined,
     summary: {
       zonesCount: panneaux.length,
       billboardsCount: Number(report.summary?.total ?? panneaux.length),
       duration: String(projet.duree || "N/R"),
+      /** Note / consignes affichées dans le résumé (bloc texte) */
+      noteResume: instructions || undefined,
+      /** Légende de la carte illustrative */
+      mapCaption: legendeC ? String(legendeC) : DEFAULT_MAP_CAPTION,
     },
     zones,
     visualImageUrl: firstPhoto,
-    visualCaption: "Une visibilité maximale dans les zones à fort trafic.",
+    visualCaption: legendeV ? String(legendeV) : DEFAULT_VISUAL_CAPTION,
   }
 }

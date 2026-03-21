@@ -5,9 +5,11 @@ interface CoverSectionProps {
   date: string
   /** Ligne optionnelle sous le titre (ex. client) */
   clientLine?: string
+  /** Zone géographique / périmètre (sous le client) */
+  zoneLine?: string
 }
 
-export function CoverSection({ campaignName, date, clientLine }: CoverSectionProps) {
+export function CoverSection({ campaignName, date, clientLine, zoneLine }: CoverSectionProps) {
   return (
     <section className="relative flex min-h-screen flex-col items-center justify-center bg-background px-8 py-16">
       {/* Background subtle pattern */}
@@ -41,7 +43,16 @@ export function CoverSection({ campaignName, date, clientLine }: CoverSectionPro
         </h1>
 
         {clientLine ? (
-          <p className="mb-6 max-w-xl text-center text-base text-muted-foreground">{clientLine}</p>
+          <p
+            className={`max-w-xl text-center text-base text-muted-foreground ${
+              zoneLine ? "mb-2" : "mb-6"
+            }`}
+          >
+            {clientLine}
+          </p>
+        ) : null}
+        {zoneLine ? (
+          <p className="mb-6 max-w-xl text-center text-sm text-muted-foreground/90">{zoneLine}</p>
         ) : null}
 
         {/* Date */}

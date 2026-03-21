@@ -4,6 +4,10 @@ admin/node_modules/
 tmp_v0_template/node_modules/
 tmp_v0_template/.next/
 
+# Maquettes v0 (UI web de référence)
+v0_ui_import/node_modules/
+v0_ui_import/.next/
+
 dist/
 admin/dist/
 

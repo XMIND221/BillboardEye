@@ -31,6 +31,10 @@ const sanitizeOverrides = (overrides = {}) => {
     entreprise: sanitizeText(overrides.entreprise, 180),
     duree: sanitizeText(overrides.duree, 120),
     instructions: sanitizeText(overrides.instructions, MAX_TEXT_LEN),
+    /** Légende grande image visuelle (bas de page photo) */
+    legendeVisuelle: sanitizeText(overrides.legendeVisuelle, 500),
+    /** Légende affichée sur la carte « Résumé de la campagne » */
+    legendeCarte: sanitizeText(overrides.legendeCarte, 220),
     zone: sanitizeText(overrides.zone, 2000),
     assignedAgent: sanitizeText(overrides.assignedAgent, 180),
     date: sanitizeText(overrides.date, 30),
@@ -214,6 +218,8 @@ const applyProjetOverrides = (report, overrides = {}) => {
   if (overrides.entreprise != null) next.projet.entreprise = String(overrides.entreprise);
   if (overrides.duree != null) next.projet.duree = String(overrides.duree);
   if (overrides.instructions != null) next.projet.instructions = String(overrides.instructions);
+  if (overrides.legendeVisuelle != null) next.projet.legendeVisuelle = String(overrides.legendeVisuelle);
+  if (overrides.legendeCarte != null) next.projet.legendeCarte = String(overrides.legendeCarte);
   if (overrides.zone != null) next.projet.zone = String(overrides.zone);
   if (overrides.assignedAgent != null) next.projet.assignedAgent = String(overrides.assignedAgent);
   if (overrides.date != null) next.projet.date = String(overrides.date);

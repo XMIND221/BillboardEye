@@ -410,6 +410,11 @@ const buildProjetReportHtml = ({ projet, summary, zonesCount, zonesHtml, visualD
       <p class="eyebrow">Rapport de campagne</p>
       <h1 class="title">${escapeHtml(projet.titreRapport || projet.nom || "Rapport Campagne")}</h1>
       <p class="subtitle">Client : ${escapeHtml(projet.entreprise || "-")}</p>
+      ${
+        projet.zone
+          ? `<p class="subtitle" style="margin-top:4px;font-size:14px;">${escapeHtml(String(projet.zone))}</p>`
+          : ""
+      }
       <div class="date-chip">
         <span class="dot"></span>
         <span style="font-size:13px;color:var(--muted);">${escapeHtml(formatReportDate(projet.date))}</span>
@@ -426,6 +431,11 @@ const buildProjetReportHtml = ({ projet, summary, zonesCount, zonesHtml, visualD
         <div class="card"><div class="stat-value">${escapeHtml(String(summary.total || 0))}</div><div class="stat-label">panneaux actifs</div></div>
         <div class="card"><div class="stat-value">${escapeHtml(projet.duree || "N/R")}</div><div class="stat-label">durée de campagne</div></div>
       </div>
+      ${
+        projet.instructions
+          ? `<div style="margin:20px 0;padding:16px;border:1px solid var(--border);border-radius:12px;background:#fff;"><p style="margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--primary);font-weight:600;">Consignes & note</p><p style="margin:0;font-size:13px;line-height:1.5;color:var(--text);white-space:pre-wrap;">${escapeHtml(String(projet.instructions))}</p></div>`
+          : ""
+      }
       <table class="meta-table">
         <tr><td class="meta-label">Client</td><td>${escapeHtml(projet.entreprise || "-")}</td></tr>
         <tr><td class="meta-label">Campagne</td><td>${escapeHtml(projet.nom || "-")}</td></tr>
@@ -441,7 +451,9 @@ const buildProjetReportHtml = ({ projet, summary, zonesCount, zonesHtml, visualD
     <div class="visual-box">
       ${visualDataUri ? `<img src="${visualDataUri}" alt="Visual campagne" />` : ""}
       <div class="visual-overlay"></div>
-      <div class="visual-caption">Une visibilité maximale dans les zones à fort trafic.</div>
+      <div class="visual-caption">${escapeHtml(
+        projet.legendeVisuelle || "Une visibilité maximale dans les zones à fort trafic."
+      )}</div>
     </div>
   </section>
 

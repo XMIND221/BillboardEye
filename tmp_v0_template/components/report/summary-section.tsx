@@ -8,6 +8,10 @@ interface SummaryData {
   billboardsCount: number
   duration: string
   mapImageUrl?: string
+  /** Texte libre (consignes / note) sous les cartes stats */
+  noteResume?: string
+  /** Légende sous la carte illustrative */
+  mapCaption?: string
 }
 
 interface SummarySectionProps {
@@ -72,6 +76,13 @@ export function SummarySection({ data }: SummarySectionProps) {
           ))}
         </div>
 
+        {data.noteResume ? (
+          <div className="mb-12 rounded-xl border border-border bg-card p-6">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">Consignes & note</p>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{data.noteResume}</p>
+          </div>
+        ) : null}
+
         {/* Map */}
         <Card className="overflow-hidden border-0 bg-secondary p-0">
           <div className="relative aspect-[16/9] w-full bg-muted">
@@ -129,8 +140,8 @@ export function SummarySection({ data }: SummarySectionProps) {
 
                 {/* Map caption */}
                 <div className="absolute bottom-4 left-4 rounded-lg bg-background/90 px-4 py-2 backdrop-blur-sm">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Distribution géographique des panneaux
+                  <p className="max-w-md text-xs font-medium text-muted-foreground">
+                    {data.mapCaption || "Distribution géographique des panneaux"}
                   </p>
                 </div>
               </div>

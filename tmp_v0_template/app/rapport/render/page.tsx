@@ -73,6 +73,7 @@ export default async function RapportRenderPage({
         campaignName={campaign.campaignName}
         date={campaign.date}
         clientLine={campaign.clientLine}
+        zoneLine={campaign.zoneLine}
       />
       <SummarySection data={campaign.summary} />
       <ZoneSection zones={campaign.zones} />
