@@ -7,9 +7,21 @@ interface CoverSectionProps {
   clientLine?: string
   /** Zone géographique / périmètre (sous le client) */
   zoneLine?: string
+  /** Logos campagne (data URI, fournis par l’API session PDF) */
+  coverHasCampaignLogos?: boolean
+  coverClientLogoDataUri?: string
+  coverEntrepriseLogoDataUri?: string
 }
 
-export function CoverSection({ campaignName, date, clientLine, zoneLine }: CoverSectionProps) {
+export function CoverSection({
+  campaignName,
+  date,
+  clientLine,
+  zoneLine,
+  coverHasCampaignLogos,
+  coverClientLogoDataUri,
+  coverEntrepriseLogoDataUri,
+}: CoverSectionProps) {
   return (
     <section className="relative flex min-h-screen flex-col items-center justify-center bg-background px-8 py-16">
       {/* Background subtle pattern */}
@@ -32,6 +44,31 @@ export function CoverSection({ campaignName, date, clientLine, zoneLine }: Cover
             BillboardEye
           </span>
         </div>
+
+        {coverHasCampaignLogos ? (
+          <div className="mb-10 flex flex-wrap items-center justify-center gap-8">
+            {coverClientLogoDataUri ? (
+              <div className="flex max-h-[88px] max-w-[200px] items-center justify-center rounded-xl border border-border bg-card px-3 py-2">
+                {/* eslint-disable-next-line @next/next/no-img-element -- data URI session PDF */}
+                <img
+                  src={coverClientLogoDataUri}
+                  alt="Logo client"
+                  className="max-h-[72px] max-w-[180px] object-contain"
+                />
+              </div>
+            ) : null}
+            {coverEntrepriseLogoDataUri ? (
+              <div className="flex max-h-[88px] max-w-[200px] items-center justify-center rounded-xl border border-border bg-card px-3 py-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={coverEntrepriseLogoDataUri}
+                  alt="Logo entreprise"
+                  className="max-h-[72px] max-w-[180px] object-contain"
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* Title */}
         <p className="mb-3 text-sm font-medium uppercase tracking-widest text-primary">

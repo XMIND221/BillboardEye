@@ -74,6 +74,9 @@ export default async function RapportRenderPage({
         date={campaign.date}
         clientLine={campaign.clientLine}
         zoneLine={campaign.zoneLine}
+        coverHasCampaignLogos={campaign.coverHasCampaignLogos}
+        coverClientLogoDataUri={campaign.coverClientLogoDataUri}
+        coverEntrepriseLogoDataUri={campaign.coverEntrepriseLogoDataUri}
       />
       <SummarySection data={campaign.summary} />
       <ZoneSection zones={campaign.zones} />

@@ -1,5 +1,6 @@
 const { createSession, getSession } = require("../services/pdfRenderSession.service");
 const { buildMapReportContext } = require("../services/map-report-payload");
+const { resolveCoverLogosDataUris } = require("../services/report-template.service");
 
 const getInternalSecret = () =>
   process.env.PDF_RENDER_INTERNAL_SECRET ||
@@ -22,7 +23,7 @@ const assertSecret = (req, res) => {
 /**
  * POST body: rapport complet { projet, panneaux, summary }
  */
-const createPdfRenderSessionHandler = (req, res) => {
+const createPdfRenderSessionHandler = async (req, res) => {
   if (!assertSecret(req, res)) return;
   const payload = req.body;
   if (!payload?.projet?.id) {
@@ -30,12 +31,16 @@ const createPdfRenderSessionHandler = (req, res) => {
   }
   try {
     const ctx = buildMapReportContext(payload);
+    const coverLogos = await resolveCoverLogosDataUris(payload.projet || {});
     const enriched = {
       ...payload,
       __renderExtras: {
         mapImageUrl: ctx.mapImageUrl || "",
         mapCaption: ctx.mapCaption || "",
         mapLegend: ctx.mapLegend || [],
+        coverClientLogoDataUri: coverLogos.coverClientLogoDataUri || "",
+        coverEntrepriseLogoDataUri: coverLogos.coverEntrepriseLogoDataUri || "",
+        coverHasCampaignLogos: Boolean(coverLogos.coverClientLogoDataUri || coverLogos.coverEntrepriseLogoDataUri),
       },
     };
     const token = createSession(enriched);

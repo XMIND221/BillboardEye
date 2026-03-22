@@ -39,6 +39,9 @@ type ApiReport = {
     mapImageUrl?: string
     mapCaption?: string
     mapLegend?: MapLegendItem[]
+    coverClientLogoDataUri?: string
+    coverEntrepriseLogoDataUri?: string
+    coverHasCampaignLogos?: boolean
   }
 }
 
@@ -81,12 +84,27 @@ export function mapApiReportToCampaign(report: ApiReport) {
     extras?.mapCaption && String(extras.mapCaption).trim() ? String(extras.mapCaption).trim() : undefined
   const legendFromApi = Array.isArray(extras?.mapLegend) ? extras.mapLegend : undefined
 
+  const cLogo =
+    extras?.coverClientLogoDataUri && String(extras.coverClientLogoDataUri).trim()
+      ? String(extras.coverClientLogoDataUri).trim()
+      : undefined
+  const eLogo =
+    extras?.coverEntrepriseLogoDataUri && String(extras.coverEntrepriseLogoDataUri).trim()
+      ? String(extras.coverEntrepriseLogoDataUri).trim()
+      : undefined
+  const coverHasCampaignLogos = Boolean(
+    extras?.coverHasCampaignLogos ?? (cLogo || eLogo),
+  )
+
   return {
     campaignName: String(projet.titreRapport || projet.nom || "Rapport campagne"),
     date: formatReportDate(projet.date),
     clientLine: projet.entreprise ? `Client : ${projet.entreprise}` : undefined,
     /** Sous-titre optionnel (zone géographique) sous le client sur la couverture */
     zoneLine: projet.zone ? String(projet.zone).trim() : undefined,
+    coverHasCampaignLogos,
+    coverClientLogoDataUri: cLogo,
+    coverEntrepriseLogoDataUri: eLogo,
     summary: {
       zonesCount: panneaux.length,
       billboardsCount: panneaux.length,

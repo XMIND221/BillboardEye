@@ -16,6 +16,7 @@ Les **données** (chiffres, photos, URL carte) sont injectées par `src/services
 
 - Construction du contexte : `src/services/map-report-payload.js` (`buildMapReportContext`).
 - **Nom de zone affiché** : `panneaux.nom_zone` (API `nomZone`) si renseigné, sinon `localisation.adresse`.
+- **Logos couverture** : `projet.clientLogoUrl` / `projet.entrepriseLogoUrl` (URLs publiques Supabase `panneaux-images/logos/…`) — téléchargées en data URI dans `report-template.service.js`. À la **création** (`POST /api/projets`), l’API accepte aussi des **`data:image/...;base64,...`** dans `clientLogoUrl` / `entrepriseLogoUrl` (ou `clientLogoDataUri` / `entrepriseLogoDataUri`) et **upload automatiquement** vers le bucket ; l’app mobile envoie le base64 depuis le picker (repli `POST /upload/logo` si base64 indisponible).
 - Carte : `MAPBOX_ACCESS_TOKEN` + **un pin numéroté par panneau** (même numéro que les fiches 01, 02…). Sans GPS réel, le pin est placé en **position indicative** autour du centroïde des autres points (ou centre France si aucun GPS). La **légende** sous l’image précise « sur la carte (GPS) » vs « position indicative ».
 - Compteurs résumé : `zonesCount` / `panneaux actifs` = **`panneaux.length`** du rapport (aligné avec les pins).
 

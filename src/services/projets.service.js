@@ -1,5 +1,26 @@
 const { randomUUID } = require("crypto");
 const supabase = require("../config/supabase");
+const { uploadLogoFromDataUri } = require("./photos.service");
+
+/**
+ * URL https inchangée ; data:image/... uploadée automatiquement vers Supabase ;
+ * file:// ou texte invalide ignoré (chaîne vide).
+ */
+const resolveLogoInput = async (raw) => {
+  if (raw == null) return "";
+  const t = String(raw).trim();
+  if (!t) return "";
+  if (/^https?:\/\//i.test(t)) return t;
+  if (t.toLowerCase().startsWith("data:image/")) {
+    try {
+      const url = await uploadLogoFromDataUri(t);
+      return url || "";
+    } catch {
+      return "";
+    }
+  }
+  return "";
+};
 
 const formatSupabaseError = (context, error) => {
   const cleanError = new Error(`Erreur Supabase (${context}): ${error.message}`);
@@ -60,8 +81,8 @@ const createProjet = async (data) => {
     instructions: fullPayloadSnakeCase.instructions,
     legendeVisuelle: data.legendeVisuelle || "",
     legendeCarte: data.legendeCarte || "",
-    clientLogoUrl: data.clientLogoUrl || "",
-    entrepriseLogoUrl: data.entrepriseLogoUrl || "",
+    clientLogoUrl: clientLogoResolved,
+    entrepriseLogoUrl: entrepriseLogoResolved,
     couleurPrincipale: data.couleurPrincipale || "#2563EB",
     titreRapport: data.titreRapport || "",
     assignedAgent: data.assignedAgent || "",

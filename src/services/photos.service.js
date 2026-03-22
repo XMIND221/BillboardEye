@@ -73,6 +73,65 @@ const uploadLogoToSupabase = async (file) => {
   return data.publicUrl;
 };
 
+const MAX_LOGO_FROM_BODY_BYTES = 6 * 1024 * 1024;
+
+/**
+ * Enregistre un logo depuis une data-URI (création campagne en un seul appel JSON).
+ * @param {string} dataUri ex. data:image/jpeg;base64,/9j/4AAQ...
+ * @returns {Promise<string|null>} URL publique ou null si invalide
+ */
+const uploadLogoFromDataUri = async (dataUri) => {
+  const s = String(dataUri || "").trim();
+  const marker = ";base64,";
+  const idx = s.indexOf(marker);
+  if (idx === -1 || !s.toLowerCase().startsWith("data:image/")) {
+    return null;
+  }
+  const meta = s.slice("data:".length, idx).toLowerCase();
+  const b64 = s.slice(idx + marker.length).replace(/\s/g, "");
+  if (!b64 || !/^[A-Za-z0-9+/=]+$/.test(b64)) {
+    return null;
+  }
+  let buffer;
+  try {
+    buffer = Buffer.from(b64, "base64");
+  } catch {
+    return null;
+  }
+  if (!buffer?.length || buffer.length > MAX_LOGO_FROM_BODY_BYTES) {
+    return null;
+  }
+  let mime = "image/jpeg";
+  if (meta.includes("image/png")) mime = "image/png";
+  else if (meta.includes("image/webp")) mime = "image/webp";
+  else if (meta.includes("image/gif")) mime = "image/gif";
+  const ext =
+    mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : mime === "image/gif" ? "gif" : "jpg";
+  const fileName = `logo-${Date.now()}.${ext}`;
+  const filePath = `logos/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("panneaux-images")
+    .upload(filePath, buffer, {
+      contentType: mime,
+      upsert: false,
+    });
+
+  if (uploadError) {
+    const err = new Error(`Erreur upload logo (data URI): ${uploadError.message}`);
+    err.code = "SUPABASE_STORAGE_UPLOAD_ERROR";
+    throw err;
+  }
+
+  const { data } = supabase.storage.from("panneaux-images").getPublicUrl(filePath);
+  if (!data?.publicUrl) {
+    const err = new Error("Impossible de recuperer l'URL du logo.");
+    err.code = "SUPABASE_STORAGE_PUBLIC_URL_ERROR";
+    throw err;
+  }
+  return data.publicUrl;
+};
+
 const { randomUUID } = require("crypto");
 
 const addPhoto = async (data) => {
@@ -141,6 +200,7 @@ const getPhotosByPanneauId = async (panneauId) => {
 module.exports = {
   uploadToSupabase,
   uploadLogoToSupabase,
+  uploadLogoFromDataUri,
   addPhoto,
   getPhotosByPanneauId,
 };

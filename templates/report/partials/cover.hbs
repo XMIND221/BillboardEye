@@ -7,6 +7,20 @@
     <span class="cover-brand">BillboardEye</span>
   </header>
   <div class="cover-center">
+    {{#if coverHasCampaignLogos}}
+    <div class="cover-campaign-logos">
+      {{#if coverClientLogoDataUri}}
+      <div class="cover-campaign-logo-wrap" title="Logo client">
+        <img class="cover-campaign-logo" src="{{coverClientLogoDataUri}}" alt="Logo client" />
+      </div>
+      {{/if}}
+      {{#if coverEntrepriseLogoDataUri}}
+      <div class="cover-campaign-logo-wrap" title="Logo entreprise">
+        <img class="cover-campaign-logo" src="{{coverEntrepriseLogoDataUri}}" alt="Logo entreprise" />
+      </div>
+      {{/if}}
+    </div>
+    {{/if}}
     <p class="cover-eyebrow">Rapport de campagne</p>
     <h1 class="cover-title">{{campaignName}}</h1>
     <div class="cover-meta">

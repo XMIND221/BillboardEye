@@ -36,6 +36,25 @@ const toDataUri = (buffer) => {
   return `data:${inferMimeType(buffer)};base64,${buffer.toString("base64")}`;
 };
 
+const isPublicHttpUrl = (u) => typeof u === "string" && /^https?:\/\//i.test(u.trim());
+
+/**
+ * Télécharge les logos campagne (URLs publiques Supabase) en data URI pour Puppeteer.
+ * @param {object} [projet]
+ */
+const resolveCoverLogosDataUris = async (projet = {}) => {
+  const clientUrl = String(projet.clientLogoUrl || projet.client_logo_url || "").trim();
+  const entUrl = String(projet.entrepriseLogoUrl || projet.entreprise_logo_url || "").trim();
+  const [cBuf, eBuf] = await Promise.all([
+    isPublicHttpUrl(clientUrl) ? fetchImageAsBuffer(clientUrl) : null,
+    isPublicHttpUrl(entUrl) ? fetchImageAsBuffer(entUrl) : null,
+  ]);
+  return {
+    coverClientLogoDataUri: cBuf?.length ? toDataUri(cBuf) : "",
+    coverEntrepriseLogoDataUri: eBuf?.length ? toDataUri(eBuf) : "",
+  };
+};
+
 let partialsRegistered = false;
 
 const registerPartialsOnce = async () => {
@@ -101,6 +120,8 @@ const renderProjetReportHtmlFromTemplate = async (report) => {
     visualDataUri = toDataUri(vBuf) || PLACEHOLDER_IMAGE;
   }
 
+  const coverLogos = await resolveCoverLogosDataUris(report.projet || {});
+
   const view = {
     primaryCss: base.primaryCss,
     documentTitle: base.documentTitle,
@@ -108,6 +129,9 @@ const renderProjetReportHtmlFromTemplate = async (report) => {
     clientLine: base.clientLine,
     zoneLine: base.zoneLine || "",
     date: base.date,
+    coverClientLogoDataUri: coverLogos.coverClientLogoDataUri,
+    coverEntrepriseLogoDataUri: coverLogos.coverEntrepriseLogoDataUri,
+    coverHasCampaignLogos: Boolean(coverLogos.coverClientLogoDataUri || coverLogos.coverEntrepriseLogoDataUri),
     zonesCount: base.zonesCount,
     billboardsCount: base.billboardsCount,
     duration: base.duration,
@@ -131,5 +155,6 @@ const renderProjetReportHtmlFromTemplate = async (report) => {
 
 module.exports = {
   renderProjetReportHtmlFromTemplate,
+  resolveCoverLogosDataUris,
   TEMPLATE_DIR,
 };
