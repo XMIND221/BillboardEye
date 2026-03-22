@@ -32,7 +32,7 @@ L’app mobile synchronise ce champ lors du choix de mode (écran rôle).
 
 ## Migrations Supabase
 
-Appliquer les fichiers dans `supabase/migrations/`, notamment `20260322_add_projet_statut.sql`.
+Appliquer les fichiers dans `supabase/migrations/`, notamment `20260322_add_projet_statut.sql` et `20260324_clean_invalid_projet_logo_urls.sql` (supprime en base les logos `file://` / non-HTTPS des anciennes campagnes ; l’API filtre aussi à la lecture).
 
 ## Mobile (Expo)
 

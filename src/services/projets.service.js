@@ -29,6 +29,15 @@ const formatSupabaseError = (context, error) => {
   return cleanError;
 };
 
+/** Ignore file://, chemins relatifs et autres valeurs non publiques (anciennes données). */
+const sanitizeStoredLogoUrl = (raw) => {
+  if (raw == null) return "";
+  const t = String(raw).trim();
+  if (!t) return "";
+  if (/^https?:\/\//i.test(t)) return t;
+  return "";
+};
+
 const normalizeProjet = (row) => {
   return {
     id: row.id,
@@ -40,8 +49,8 @@ const normalizeProjet = (row) => {
     instructions: row.instructions || "",
     legendeVisuelle: row.legende_visuelle || row.legendeVisuelle || "",
     legendeCarte: row.legende_carte || row.legendeCarte || "",
-    clientLogoUrl: row.client_logo_url || row.clientLogoUrl || "",
-    entrepriseLogoUrl: row.entreprise_logo_url || row.entrepriseLogoUrl || "",
+    clientLogoUrl: sanitizeStoredLogoUrl(row.client_logo_url || row.clientLogoUrl),
+    entrepriseLogoUrl: sanitizeStoredLogoUrl(row.entreprise_logo_url || row.entrepriseLogoUrl),
     couleurPrincipale: row.couleur_principale || row.couleurPrincipale || "#E11D48",
     titreRapport: row.titre_rapport || row.titreRapport || "",
     assignedAgent: row.assigned_agent || row.assignedAgent || "",
