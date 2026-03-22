@@ -1,0 +1,18 @@
+{{! Couverture — modifiable librement (textes + structure) }}
+<section class="report-page cover-page">
+  <header class="cover-header">
+    <div class="cover-logo-box">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3" fill="white" stroke="white"/></svg>
+    </div>
+    <span class="cover-brand">BillboardEye</span>
+  </header>
+  <div class="cover-center">
+    <p class="cover-eyebrow">Rapport de campagne</p>
+    <h1 class="cover-title">{{campaignName}}</h1>
+    <div class="cover-meta">
+      <p>{{clientLine}}</p>
+      {{#if zoneLine}}<p>{{zoneLine}}</p>{{/if}}
+    </div>
+  </div>
+  <footer class="cover-footer">{{date}}</footer>
+</section>

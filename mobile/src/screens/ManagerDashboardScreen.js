@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshCon
 import { getProjets, getProjetReport } from "../services/api";
 import { theme } from "../theme";
 import Button from "../components/Button";
+import AppHeader from "../components/AppHeader";
 
 export default function ManagerDashboardScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
@@ -61,10 +62,12 @@ export default function ManagerDashboardScreen({ navigation }) {
   const progress = stats.totalPanels > 0 ? Math.round((stats.completedPanels / stats.totalPanels) * 100) : 0;
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.accent} />}
-    >
+    <View style={styles.root}>
+      <AppHeader />
+      <ScrollView
+        contentContainerStyle={styles.container}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.accent} />}
+      >
       <Text style={styles.title}>Dashboard</Text>
       {!!error && (
         <View style={styles.errorBlock}>
@@ -75,7 +78,7 @@ export default function ManagerDashboardScreen({ navigation }) {
         </View>
       )}
       {loading ? (
-        <ActivityIndicator size="large" color={theme.colors.accent} style={styles.loader} />
+        <ActivityIndicator size="large" color={theme.colors.primary} style={styles.loader} />
       ) : (
         <>
           <View style={[styles.card, { backgroundColor: theme.colors.pastels.blue }]}>
@@ -92,15 +95,27 @@ export default function ManagerDashboardScreen({ navigation }) {
             </View>
             <Text style={styles.progressText}>{progress}%</Text>
           </View>
-          <Button title="Créer une campagne" variant="primary" onPress={() => navigation.navigate("ManagerCreateCampaign")} style={styles.primaryButton} />
-          <Button title="Voir les campagnes" variant="secondary" onPress={() => navigation.navigate("ManagerCampaigns")} style={styles.secondaryButton} />
+          <Button
+            title="Créer une campagne"
+            variant="primary"
+            onPress={() => navigation.navigate("ManagerCampaignsTab", { screen: "ManagerCreateCampaign" })}
+            style={styles.primaryButton}
+          />
+          <Button
+            title="Voir les campagnes"
+            variant="secondary"
+            onPress={() => navigation.navigate("ManagerCampaignsTab", { screen: "ManagerCampaigns" })}
+            style={styles.secondaryButton}
+          />
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: theme.colors.background },
   container: {
     padding: theme.spacing.md,
     backgroundColor: theme.colors.background,

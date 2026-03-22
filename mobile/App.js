@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Text, View, ActivityIndicator, TouchableOpacity } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { theme } from "./src/theme";
 import { AuthProvider, useAuth } from "./src/contexts/AuthContext";
 import LoginScreen from "./src/screens/LoginScreen";
@@ -11,6 +14,7 @@ import ManagerDashboardScreen from "./src/screens/ManagerDashboardScreen";
 import ManagerCampaignsScreen from "./src/screens/ManagerCampaignsScreen";
 import ManagerCreateCampaignScreen from "./src/screens/ManagerCreateCampaignScreen";
 import ManagerCampaignDetailScreen from "./src/screens/ManagerCampaignDetailScreen";
+import ManagerPanneauxScreen from "./src/screens/ManagerPanneauxScreen";
 import AgentMissionsScreen from "./src/screens/AgentMissionsScreen";
 import AgentMissionDetailScreen from "./src/screens/AgentMissionDetailScreen";
 import AgentZoneSelectionScreen from "./src/screens/AgentZoneSelectionScreen";
@@ -21,143 +25,336 @@ import UploadPanneauScreen from "./src/screens/UploadPanneauScreen";
 import ReportingGenerateScreen from "./src/screens/ReportingGenerateScreen";
 import ReportingEditorScreen from "./src/screens/ReportingEditorScreen";
 import ReportingPreviewScreen from "./src/screens/ReportingPreviewScreen";
+import ProfileScreen from "./src/screens/ProfileScreen";
 import { clearUserRole, getUserRole, saveUserRole } from "./src/services/projectStorage";
 
 const RootStack = createNativeStackNavigator();
-const ManagerStack = createNativeStackNavigator();
-const AgentStack = createNativeStackNavigator();
+const ManagerDashboardStack = createNativeStackNavigator();
+const ManagerCampaignsStack = createNativeStackNavigator();
+const ManagerPanneauxStack = createNativeStackNavigator();
+const ManagerRapportsStack = createNativeStackNavigator();
+const ManagerProfilStack = createNativeStackNavigator();
+const ManagerTab = createBottomTabNavigator();
+const MissionsStack = createNativeStackNavigator();
+const PanneauxStack = createNativeStackNavigator();
+const RapportsStack = createNativeStackNavigator();
+const ProfileStack = createNativeStackNavigator();
 const ReportingStack = createNativeStackNavigator();
+const AgentTab = createBottomTabNavigator();
+
+const navigationLightTheme = {
+  ...DefaultTheme,
+  dark: false,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: theme.colors.primary,
+    background: theme.colors.background,
+    card: theme.colors.surface,
+    text: theme.colors.text,
+    border: theme.colors.border,
+    notification: theme.colors.primary,
+  },
+};
+
+const lightStackScreenOptions = {
+  headerStyle: { backgroundColor: theme.colors.background },
+  headerTintColor: theme.colors.primary,
+  headerTitleStyle: { color: theme.colors.text, fontWeight: "600", fontSize: 17 },
+  headerShadowVisible: false,
+  contentStyle: { backgroundColor: theme.colors.background },
+};
 
 function HeaderActions({ onSwitchRole, onSignOut, userEmail }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, maxWidth: 220 }}>
       {userEmail ? (
-        <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 12 }} numberOfLines={1}>
+        <Text style={{ color: theme.colors.textMuted, fontSize: 11 }} numberOfLines={1}>
           {userEmail}
         </Text>
       ) : null}
       <TouchableOpacity onPress={onSwitchRole} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-        <Text style={{ color: theme.colors.accent, fontWeight: "700", fontSize: 15 }}>Changer</Text>
+        <Text style={{ color: theme.colors.primary, fontWeight: "700", fontSize: 14 }}>Changer</Text>
       </TouchableOpacity>
       {onSignOut && (
         <TouchableOpacity onPress={onSignOut} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <Text style={{ color: "rgba(255,255,255,0.7)", fontWeight: "600", fontSize: 14 }}>Déconnexion</Text>
+          <Text style={{ color: theme.colors.textSecondary, fontWeight: "600", fontSize: 13 }}>Déconnexion</Text>
         </TouchableOpacity>
       )}
     </View>
   );
 }
 
-const screenOptions = {
-  headerStyle: { backgroundColor: theme.colors.primary },
-  headerTintColor: theme.colors.textOnDark,
-  headerTitleStyle: { fontWeight: "700", fontSize: 17 },
-  headerShadowVisible: false,
-  contentStyle: { backgroundColor: theme.colors.background },
-};
-
-function ManagerNavigator({ onSwitchRole, onSignOut, userEmail }) {
+function ManagerDashboardStackNavigator() {
   return (
-    <ManagerStack.Navigator screenOptions={screenOptions}>
-      <ManagerStack.Screen
-        name="ManagerDashboard"
-        component={ManagerDashboardScreen}
-        options={{
-          title: "Dashboard",
-          headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} />,
-        }}
-      />
-      <ManagerStack.Screen
-        name="ManagerCampaigns"
-        component={ManagerCampaignsScreen}
-        options={{ title: "Campagnes", headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}
-      />
-      <ManagerStack.Screen
-        name="ManagerCreateCampaign"
-        component={ManagerCreateCampaignScreen}
-        options={{ title: "Création campagne", headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}
-      />
-      <ManagerStack.Screen
-        name="ManagerCampaignDetail"
-        component={ManagerCampaignDetailScreen}
-        options={{ title: "Détail campagne", headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}
-      />
-    </ManagerStack.Navigator>
+    <ManagerDashboardStack.Navigator screenOptions={{ ...lightStackScreenOptions, headerShown: false }}>
+      <ManagerDashboardStack.Screen name="ManagerDashboard" component={ManagerDashboardScreen} />
+    </ManagerDashboardStack.Navigator>
   );
 }
 
-function AgentNavigator({ onSwitchRole, onSignOut, userEmail }) {
+function ManagerCampaignsStackNavigator({ onSwitchRole, onSignOut, userEmail }) {
   return (
-    <AgentStack.Navigator screenOptions={screenOptions}>
-      <AgentStack.Screen
-        name="AgentMissions"
-        component={AgentMissionsScreen}
+    <ManagerCampaignsStack.Navigator
+      screenOptions={{
+        ...lightStackScreenOptions,
+        headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} />,
+      }}
+    >
+      <ManagerCampaignsStack.Screen name="ManagerCampaigns" component={ManagerCampaignsScreen} options={{ title: "Campagnes" }} />
+      <ManagerCampaignsStack.Screen name="ManagerCreateCampaign" component={ManagerCreateCampaignScreen} options={{ title: "Création campagne" }} />
+      <ManagerCampaignsStack.Screen name="ManagerCampaignDetail" component={ManagerCampaignDetailScreen} options={{ title: "Détail campagne" }} />
+    </ManagerCampaignsStack.Navigator>
+  );
+}
+
+function ManagerPanneauxStackNavigator({ onSwitchRole, onSignOut, userEmail }) {
+  return (
+    <ManagerPanneauxStack.Navigator screenOptions={{ ...lightStackScreenOptions, headerShown: false, headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}>
+      <ManagerPanneauxStack.Screen name="ManagerPanneauxMain" component={ManagerPanneauxScreen} />
+    </ManagerPanneauxStack.Navigator>
+  );
+}
+
+function ManagerRapportsStackNavigator({ onSwitchRole, onSignOut, userEmail }) {
+  return (
+    <ManagerRapportsStack.Navigator
+      screenOptions={{
+        ...lightStackScreenOptions,
+        headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} />,
+      }}
+    >
+      <ManagerRapportsStack.Screen name="ReportingGenerate" component={ReportingGenerateScreen} options={{ headerShown: false }} />
+      <ManagerRapportsStack.Screen name="ReportingEditor" component={ReportingEditorScreen} options={{ title: "Édition rapport" }} />
+      <ManagerRapportsStack.Screen name="ReportingPreview" component={ReportingPreviewScreen} options={{ title: "Aperçu PDF" }} />
+    </ManagerRapportsStack.Navigator>
+  );
+}
+
+function ManagerProfilStackNavigator({ onSwitchRole, onSignOut, userEmail }) {
+  return (
+    <ManagerProfilStack.Navigator screenOptions={{ ...lightStackScreenOptions, headerShown: false }}>
+      <ManagerProfilStack.Screen name="ProfileMain">
+        {(props) => <ProfileScreen {...props} userEmail={userEmail} onSignOut={onSignOut} onSwitchRole={onSwitchRole} />}
+      </ManagerProfilStack.Screen>
+    </ManagerProfilStack.Navigator>
+  );
+}
+
+function ManagerTabNavigator({ onSwitchRole, onSignOut, userEmail }) {
+  const DashboardTab = useMemo(
+    () =>
+      function DashboardTabScreen() {
+        return <ManagerDashboardStackNavigator />;
+      },
+    []
+  );
+  const CampaignsTab = useMemo(
+    () =>
+      function CampaignsTabScreen() {
+        return <ManagerCampaignsStackNavigator onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} />;
+      },
+    [onSwitchRole, onSignOut, userEmail]
+  );
+  const PanneauxTab = useMemo(
+    () =>
+      function PanneauxTabScreen() {
+        return <ManagerPanneauxStackNavigator onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} />;
+      },
+    [onSwitchRole, onSignOut, userEmail]
+  );
+  const RapportsTab = useMemo(
+    () =>
+      function RapportsTabScreen() {
+        return <ManagerRapportsStackNavigator onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} />;
+      },
+    [onSwitchRole, onSignOut, userEmail]
+  );
+  const ProfilTab = useMemo(
+    () =>
+      function ProfilTabScreen() {
+        return <ManagerProfilStackNavigator onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} />;
+      },
+    [onSwitchRole, onSignOut, userEmail]
+  );
+
+  return (
+    <ManagerTab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.textMuted,
+        tabBarStyle: {
+          backgroundColor: theme.colors.background,
+          borderTopColor: theme.colors.border,
+          paddingTop: 4,
+          height: 58,
+        },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: "600" },
+      }}
+    >
+      <ManagerTab.Screen
+        name="ManagerDashboardTab"
+        component={DashboardTab}
+        options={{ title: "Tableau", tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} /> }}
+      />
+      <ManagerTab.Screen
+        name="ManagerCampaignsTab"
+        component={CampaignsTab}
+        options={{ title: "Campagnes", tabBarIcon: ({ color, size }) => <Ionicons name="clipboard-outline" size={size} color={color} /> }}
+      />
+      <ManagerTab.Screen
+        name="ManagerPanneauxTab"
+        component={PanneauxTab}
+        options={{ title: "Panneaux", tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" size={size} color={color} /> }}
+      />
+      <ManagerTab.Screen
+        name="ManagerRapportsTab"
+        component={RapportsTab}
+        options={{ title: "Rapports", tabBarIcon: ({ color, size }) => <Ionicons name="document-text-outline" size={size} color={color} /> }}
+      />
+      <ManagerTab.Screen
+        name="ManagerProfilTab"
+        component={ProfilTab}
+        options={{ title: "Profil", tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} /> }}
+      />
+    </ManagerTab.Navigator>
+  );
+}
+
+function AgentMissionsStackNavigator({ onSwitchRole, onSignOut, userEmail }) {
+  return (
+    <MissionsStack.Navigator screenOptions={{ ...lightStackScreenOptions, headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}>
+      <MissionsStack.Screen name="AgentMissions" component={AgentMissionsScreen} options={{ headerShown: false }} />
+      <MissionsStack.Screen name="AgentMissionDetail" component={AgentMissionDetailScreen} options={{ title: "Détail mission" }} />
+      <MissionsStack.Screen name="AgentZoneSelection" component={AgentZoneSelectionScreen} options={{ title: "Sélection zone" }} />
+      <MissionsStack.Screen name="AgentExecution" component={AgentExecutionScreen} options={{ title: "Exécution terrain" }} />
+      <MissionsStack.Screen name="AgentMissionComplete" component={AgentMissionCompleteScreen} options={{ title: "Fin mission" }} />
+    </MissionsStack.Navigator>
+  );
+}
+
+function AgentPanneauxStackNavigator({ onSwitchRole, onSignOut, userEmail }) {
+  return (
+    <PanneauxStack.Navigator screenOptions={{ ...lightStackScreenOptions, headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}>
+      <PanneauxStack.Screen name="AgentPanneaux" component={AgentPanneauxScreen} options={{ headerShown: false }} />
+      <PanneauxStack.Screen name="UploadPanneau" component={UploadPanneauScreen} options={{ title: "Mode upload" }} />
+    </PanneauxStack.Navigator>
+  );
+}
+
+function AgentRapportsStackNavigator({ onSwitchRole, onSignOut, userEmail }) {
+  return (
+    <RapportsStack.Navigator screenOptions={{ ...lightStackScreenOptions, headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}>
+      <RapportsStack.Screen name="ReportingGenerate" component={ReportingGenerateScreen} options={{ headerShown: false }} />
+      <RapportsStack.Screen name="ReportingEditor" component={ReportingEditorScreen} options={{ title: "Édition rapport" }} />
+      <RapportsStack.Screen name="ReportingPreview" component={ReportingPreviewScreen} options={{ title: "Aperçu PDF" }} />
+    </RapportsStack.Navigator>
+  );
+}
+
+function AgentProfileStackNavigator({ onSwitchRole, onSignOut, userEmail }) {
+  return (
+    <ProfileStack.Navigator screenOptions={{ ...lightStackScreenOptions, headerShown: false }}>
+      <ProfileStack.Screen name="ProfileMain">
+        {(props) => <ProfileScreen {...props} userEmail={userEmail} onSignOut={onSignOut} onSwitchRole={onSwitchRole} />}
+      </ProfileStack.Screen>
+    </ProfileStack.Navigator>
+  );
+}
+
+function AgentTabNavigator({ onSwitchRole, onSignOut, userEmail }) {
+  const MissionsTab = useMemo(
+    () =>
+      function MissionsTabScreen() {
+        return <AgentMissionsStackNavigator onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} />;
+      },
+    [onSwitchRole, onSignOut, userEmail]
+  );
+  const PanneauxTab = useMemo(
+    () =>
+      function PanneauxTabScreen() {
+        return <AgentPanneauxStackNavigator onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} />;
+      },
+    [onSwitchRole, onSignOut, userEmail]
+  );
+  const RapportsTab = useMemo(
+    () =>
+      function RapportsTabScreen() {
+        return <AgentRapportsStackNavigator onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} />;
+      },
+    [onSwitchRole, onSignOut, userEmail]
+  );
+  const ProfilTab = useMemo(
+    () =>
+      function ProfilTabScreen() {
+        return <AgentProfileStackNavigator onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} />;
+      },
+    [onSwitchRole, onSignOut, userEmail]
+  );
+
+  return (
+    <AgentTab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.textMuted,
+        tabBarStyle: {
+          backgroundColor: theme.colors.background,
+          borderTopColor: theme.colors.border,
+          paddingTop: 4,
+          height: 58,
+        },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: "600" },
+      }}
+    >
+      <AgentTab.Screen
+        name="MissionsTab"
+        component={MissionsTab}
         options={{
           title: "Missions",
-          headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="clipboard-outline" size={size} color={color} />,
         }}
       />
-      <AgentStack.Screen
-        name="AgentMissionDetail"
-        component={AgentMissionDetailScreen}
-        options={{ title: "Détail mission", headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}
+      <AgentTab.Screen
+        name="PanneauxTab"
+        component={PanneauxTab}
+        options={{
+          title: "Panneaux",
+          tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" size={size} color={color} />,
+        }}
       />
-      <AgentStack.Screen
-        name="AgentZoneSelection"
-        component={AgentZoneSelectionScreen}
-        options={{ title: "Sélection zone", headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}
+      <AgentTab.Screen
+        name="RapportsTab"
+        component={RapportsTab}
+        options={{
+          title: "Rapports",
+          tabBarIcon: ({ color, size }) => <Ionicons name="document-text-outline" size={size} color={color} />,
+        }}
       />
-      <AgentStack.Screen
-        name="AgentExecution"
-        component={AgentExecutionScreen}
-        options={{ title: "Exécution terrain", headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}
+      <AgentTab.Screen
+        name="ProfilTab"
+        component={ProfilTab}
+        options={{
+          title: "Profil",
+          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
+        }}
       />
-      <AgentStack.Screen
-        name="AgentMissionComplete"
-        component={AgentMissionCompleteScreen}
-        options={{ title: "Fin mission", headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}
-      />
-      <AgentStack.Screen
-        name="AgentPanneaux"
-        component={AgentPanneauxScreen}
-        options={{ title: "Mes panneaux", headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}
-      />
-      <AgentStack.Screen
-        name="UploadPanneau"
-        component={UploadPanneauScreen}
-        options={{ title: "Mode Upload", headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}
-      />
-    </AgentStack.Navigator>
+    </AgentTab.Navigator>
   );
 }
 
 function ReportingNavigator({ onSwitchRole, onSignOut, userEmail }) {
   return (
-    <ReportingStack.Navigator screenOptions={screenOptions}>
-      <ReportingStack.Screen
-        name="ReportingGenerate"
-        component={ReportingGenerateScreen}
-        options={{
-          title: "Générer rapport",
-          headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} />,
-        }}
-      />
-      <ReportingStack.Screen
-        name="ReportingEditor"
-        component={ReportingEditorScreen}
-        options={{ title: "Édition rapport", headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}
-      />
-      <ReportingStack.Screen
-        name="ReportingPreview"
-        component={ReportingPreviewScreen}
-        options={{ title: "Aperçu PDF", headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}
-      />
+    <ReportingStack.Navigator screenOptions={{ ...lightStackScreenOptions, headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}>
+      <ReportingStack.Screen name="ReportingGenerate" component={ReportingGenerateScreen} options={{ headerShown: false }} />
+      <ReportingStack.Screen name="ReportingEditor" component={ReportingEditorScreen} options={{ title: "Édition rapport" }} />
+      <ReportingStack.Screen name="ReportingPreview" component={ReportingPreviewScreen} options={{ title: "Aperçu PDF" }} />
     </ReportingStack.Navigator>
   );
 }
 
 function AppContent() {
-  const { loading: authLoading, session, isAuthConfigured, signOut } = useAuth();
+  const { loading: authLoading, session, isAuthConfigured, signOut, updateAppRole } = useAuth();
   const userEmail = session?.user?.email || "";
   const [role, setRole] = useState(null);
   const [loadingRole, setLoadingRole] = useState(true);
@@ -179,6 +376,13 @@ function AppContent() {
 
   const handleSelectRole = async (nextRole) => {
     await saveUserRole(nextRole);
+    if (isAuthConfigured && typeof updateAppRole === "function") {
+      try {
+        await updateAppRole(nextRole);
+      } catch (_e) {
+        // metadata optionnelle
+      }
+    }
     setRole(nextRole);
   };
 
@@ -189,16 +393,16 @@ function AppContent() {
 
   if (authLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.colors.backgroundDark }}>
-        <ActivityIndicator size="large" color={theme.colors.accent} />
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.colors.background }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
   if (loadingRole) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.colors.backgroundDark }}>
-        <ActivityIndicator size="large" color={theme.colors.accent} />
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.colors.background }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
@@ -206,7 +410,7 @@ function AppContent() {
   if (isAuthConfigured && !session) {
     return (
       <>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <LoginScreen />
       </>
     );
@@ -215,35 +419,23 @@ function AppContent() {
   if (!role) {
     return (
       <>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <RoleGateScreen onSelectRole={handleSelectRole} onSignOut={isAuthConfigured ? signOut : null} />
       </>
     );
   }
 
-  const navTheme = {
-    dark: true,
-    colors: {
-      primary: theme.colors.accent,
-      background: theme.colors.background,
-      card: theme.colors.primary,
-      text: theme.colors.textOnDark,
-      border: theme.colors.border,
-      notification: theme.colors.accent,
-    },
-  };
-
   return (
-    <NavigationContainer theme={navTheme}>
-      <StatusBar style="light" />
+    <NavigationContainer theme={navigationLightTheme}>
+      <StatusBar style="dark" />
       <RootStack.Navigator key={role}>
         {role === "gestionnaire" ? (
           <RootStack.Screen name="ModeGestionnaire" options={{ headerShown: false }}>
-            {(props) => <ManagerNavigator {...props} onSwitchRole={handleSwitchRole} onSignOut={isAuthConfigured ? signOut : null} userEmail={userEmail} />}
+            {(props) => <ManagerTabNavigator {...props} onSwitchRole={handleSwitchRole} onSignOut={isAuthConfigured ? signOut : null} userEmail={userEmail} />}
           </RootStack.Screen>
         ) : role === "agent" ? (
           <RootStack.Screen name="ModeAgentTerrain" options={{ headerShown: false }}>
-            {(props) => <AgentNavigator {...props} onSwitchRole={handleSwitchRole} onSignOut={isAuthConfigured ? signOut : null} userEmail={userEmail} />}
+            {(props) => <AgentTabNavigator {...props} onSwitchRole={handleSwitchRole} onSignOut={isAuthConfigured ? signOut : null} userEmail={userEmail} />}
           </RootStack.Screen>
         ) : role === "reporting" ? (
           <RootStack.Screen name="ModeReporting" options={{ headerShown: false }}>
@@ -251,7 +443,7 @@ function AppContent() {
           </RootStack.Screen>
         ) : (
           <RootStack.Screen name="ModeGestionnaire" options={{ headerShown: false }}>
-            {(props) => <ManagerNavigator {...props} onSwitchRole={handleSwitchRole} onSignOut={isAuthConfigured ? signOut : null} userEmail={userEmail} />}
+            {(props) => <ManagerTabNavigator {...props} onSwitchRole={handleSwitchRole} onSignOut={isAuthConfigured ? signOut : null} userEmail={userEmail} />}
           </RootStack.Screen>
         )}
       </RootStack.Navigator>
@@ -261,8 +453,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

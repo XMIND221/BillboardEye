@@ -56,6 +56,7 @@ export const syncOfflineData = async () => {
         const created = await createPanneau({
           entreprise: panneau.entreprise,
           projetId: panneau.projetId || null,
+          nomZone: panneau.nomZone || undefined,
           latitude: Number(panneau.localisation?.latitude),
           longitude: Number(panneau.localisation?.longitude),
           adresse: panneau.localisation?.adresse || "",

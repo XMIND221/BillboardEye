@@ -1,0 +1,11 @@
+{{! Pleine page visuelle — affichée si visualDataUri défini }}
+<section class="report-page report-page--visual">
+  <figure class="visual-figure">
+    <img src="{{visualDataUri}}" alt="Visuel de campagne" />
+    {{#if visualCaption}}
+    <div class="visual-caption-wrap">
+      <p class="visual-caption">{{visualCaption}}</p>
+    </div>
+    {{/if}}
+  </figure>
+</section>

@@ -93,6 +93,7 @@ export default function AgentExecutionScreen({ navigation, route }) {
       const panneau = await createPanneau({
         entreprise: mission?.entreprise || "Client",
         projetId: mission?.id,
+        nomZone: zone || undefined,
         adresse: zone,
         latitude: finalGps.latitude,
         longitude: finalGps.longitude,
@@ -129,6 +130,7 @@ export default function AgentExecutionScreen({ navigation, route }) {
         serverId: panneau.id,
         entreprise: panneau.entreprise || mission?.entreprise || "Client",
         projetId: panneau.projetId || mission?.id,
+        nomZone: zone || panneau.nomZone,
         localisation,
         nombreFaces: panneau.nombreFaces || 2,
         statut: STATUS_SYNCED,

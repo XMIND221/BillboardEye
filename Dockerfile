@@ -35,7 +35,11 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev
 
+# API + templates PDF Handlebars (templates/report/) + sources
 COPY . .
+
+# Vérification build : évite une image sans gabarits → fallback Next / legacy
+RUN test -f templates/report/body.hbs && test -f templates/report/partials/summary.hbs
 
 COPY --from=report-ui /build/.next/standalone ./tmp_v0_template/.next/standalone
 

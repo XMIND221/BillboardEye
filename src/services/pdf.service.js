@@ -1,17 +1,13 @@
 const PDFDocument = require("pdfkit");
 const supabase = require("../config/supabase");
-const { createClient } = require("@supabase/supabase-js");
 const puppeteer = require("puppeteer");
 const fetch = typeof globalThis.fetch === "function" ? globalThis.fetch : require("node-fetch");
+const { fetchImageAsBuffer } = require("./report-media.service");
+const { renderProjetReportHtmlFromTemplate } = require("./report-template.service");
 
 const PDF_BUCKET = process.env.PDF_BUCKET_NAME || "panneaux-pdf";
 const MAPBOX_TOKEN = process.env.MAPBOX_ACCESS_TOKEN;
-const PHOTOS_BUCKET = "panneaux-images";
 const DEBUG_PDF = process.env.DEBUG_PDF === "true";
-
-const supabaseStorage = process.env.SUPABASE_SERVICE_ROLE_KEY
-  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
-  : supabase;
 
 const BILLBOARD_EYE = {
   name: "BillboardEye",
@@ -49,38 +45,6 @@ const MAP_HEIGHT = 380;
 const formatGps = (lat, lng) => {
   if (lat == null || lng == null) return "N/A";
   return `${Number(lat).toFixed(6)} / ${Number(lng).toFixed(6)}`;
-};
-
-const getStoragePath = (url) => {
-  if (!url || typeof url !== "string") return null;
-  const idx = url.indexOf(`/${PHOTOS_BUCKET}/`);
-  if (idx !== -1) {
-    const p = url.substring(idx + PHOTOS_BUCKET.length + 2).split("?")[0];
-    return p ? decodeURIComponent(p) : null;
-  }
-  if (url.startsWith(`${PHOTOS_BUCKET}/`)) {
-    return decodeURIComponent(url.substring(PHOTOS_BUCKET.length + 1).split("?")[0]);
-  }
-  if (url.startsWith("photos/") || (!url.startsWith("http") && url.includes("/"))) {
-    return url.split("?")[0];
-  }
-  return null;
-};
-
-const fetchImageAsBuffer = async (url) => {
-  if (!url || typeof url !== "string") return null;
-  const storagePath = getStoragePath(url);
-  if (storagePath) {
-    try {
-      const { data, error } = await supabaseStorage.storage.from(PHOTOS_BUCKET).download(storagePath);
-      if (!error && data) return Buffer.from(await data.arrayBuffer());
-    } catch (_) {}
-  }
-  try {
-    const res = await fetch(url);
-    if (res.ok) return Buffer.from(await res.arrayBuffer());
-  } catch (_) {}
-  return null;
 };
 
 const fetchStaticMapBuffer = async (panneaux) => {
@@ -340,6 +304,11 @@ const formatTime = (raw) => {
 };
 
 const buildProjetReportHtml = ({ projet, summary, zonesCount, zonesHtml, visualDataUri }) => {
+  const rawColor = projet?.couleurPrincipale;
+  const primaryCss =
+    rawColor && /^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/.test(String(rawColor).trim())
+      ? String(rawColor).trim()
+      : "#e11d48";
   return `<!doctype html>
 <html lang="fr">
 <head>
@@ -348,7 +317,7 @@ const buildProjetReportHtml = ({ projet, summary, zonesCount, zonesHtml, visualD
   <title>${escapeHtml(projet.titreRapport || projet.nom || "Rapport Campagne")}</title>
   <style>
     :root {
-      --primary: #e11d48;
+      --primary: ${primaryCss};
       --bg: #ffffff;
       --secondary: #f9fafb;
       --muted: #6b7280;
@@ -598,7 +567,7 @@ const createPanneauPDFBuffer = async (rapport) => {
     addFooter(doc, 1, 2, theme);
 
     doc.addPage({ margin: 0 });
-    const zoneName = panneau.localisation?.adresse || "Panneau";
+    const zoneName = panneau.nomZone || panneau.localisation?.adresse || "Panneau";
     drawPhotoPair(doc, faceABuf, faceBBuf, zoneName, formatGps(panneau.localisation?.latitude, panneau.localisation?.longitude), theme, "", "");
 
     addFooter(doc, 2, 2, theme);
@@ -608,7 +577,7 @@ const createPanneauPDFBuffer = async (rapport) => {
 
 /** Fallback : HTML inline (sans Next) si le renderer v0 n’est pas disponible. */
 const createProjetPDFBufferLegacy = async (report) => {
-  const { projet, panneaux, summary } = report;
+    const { projet, panneaux, summary } = report;
   const zonesCount = (panneaux || []).length;
 
   const preparedZones = [];
@@ -670,8 +639,21 @@ const createProjetPDFBufferLegacy = async (report) => {
 };
 
 const createProjetPDFBuffer = async (report) => {
-  const viaNext = await generateProjetPdfViaNextTemplate(report);
-  if (viaNext && viaNext.length > 0) return viaNext;
+  /** Flux principal : HTML depuis templates/report/ + Puppeteer (voir report-template.service.js) */
+  try {
+    const fromTemplate = await renderProjetReportHtmlFromTemplate(report);
+    if (fromTemplate) {
+      return generatePDF(fromTemplate);
+    }
+  } catch (e) {
+    console.warn("[pdf] template rapport:", e?.message || e);
+  }
+
+  if (process.env.NEXT_PDF_RENDERER_FIRST === "true") {
+    const viaNext = await generateProjetPdfViaNextTemplate(report);
+    if (viaNext && viaNext.length > 0) return viaNext;
+  }
+
   return createProjetPDFBufferLegacy(report);
 };
 

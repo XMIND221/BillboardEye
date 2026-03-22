@@ -18,7 +18,8 @@ export default function PanneauCard({ panneau, projetNom = "Sans projet" }) {
       <div>
         <h3>{panneau.entreprise}</h3>
         <p>Projet: {projetNom}</p>
-        <p>{panneau.localisation?.adresse || "Adresse non renseignée"}</p>
+        {panneau.nomZone ? <p className="panneau-zone-gestion">Zone : {panneau.nomZone}</p> : null}
+        <p>{panneau.localisation?.adresse || panneau.nomZone || "Adresse non renseignée"}</p>
         <span className={`status status-${statusLabel.toLowerCase().replace(" ", "-")}`}>{statusLabel}</span>
       </div>
       <Link to={`/panneaux/${panneau.id}`} className="btn">

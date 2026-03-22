@@ -1,9 +1,14 @@
 const express = require("express");
 const cors = require("cors");
 const routes = require("./routes");
+const { helmetMiddleware, globalLimiter } = require("./middlewares/security.middleware");
 
 const app = express();
 const isProd = process.env.NODE_ENV === "production";
+
+app.set("trust proxy", 1);
+app.use(helmetMiddleware);
+app.use(globalLimiter);
 
 const splitCsv = (value) =>
   String(value || "")
@@ -42,7 +47,8 @@ if (isProd && corsOrigins.length === 0) {
   console.warn("[CORS] Aucune origine configurée. Définissez CORS_ORIGINS ou ADMIN_WEB_URL/MOBILE_WEB_URL.");
 }
 
-app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "50mb" }));
+const jsonLimit = process.env.JSON_BODY_LIMIT || (isProd ? "12mb" : "50mb");
+app.use(express.json({ limit: jsonLimit }));
 app.use(
   cors({
     origin(origin, callback) {

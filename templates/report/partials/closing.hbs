@@ -1,0 +1,14 @@
+{{! Page de clôture — toujours affichée en fin de rapport (évite dernière page vide) }}
+<section class="report-page closing-page">
+  <div class="closing-inner">
+    <p class="closing-eyebrow">Fin de rapport</p>
+    <h2 class="closing-title">Merci pour votre confiance</h2>
+    <p class="closing-text">
+      Document généré pour la campagne <strong>{{campaignName}}</strong>{{#if clientLine}} — {{clientLine}}{{/if}}.
+    </p>
+    <p class="closing-hint">Les données terrain (photos, GPS, horodatages) sont celles enregistrées au moment de la mission.</p>
+    <div class="closing-brand-wrap">
+      <span class="closing-brand">BillboardEye</span>
+    </div>
+  </div>
+</section>

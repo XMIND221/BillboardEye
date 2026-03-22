@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, RefreshControl } from "react-native";
 import { getProjets, getProjetPDFUrl, getProjetReport } from "../services/api";
 import { theme } from "../theme";
+import AppHeader from "../components/AppHeader";
 import { getSelectedProject } from "../services/projectStorage";
 
 const parseZones = (zoneStr) =>
@@ -114,20 +115,25 @@ export default function ReportingGenerateScreen({ navigation, route }) {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={theme.colors.accent} />
+      <View style={styles.outer}>
+        <AppHeader />
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
       </View>
     );
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.accent} />
-      }
-    >
+    <View style={styles.outer}>
+      <AppHeader />
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
+        }
+      >
       <Text style={styles.title}>Rapport PDF</Text>
       <Text style={styles.subtitle}>Sélectionnez une campagne et un template, puis générez le rapport</Text>
 
@@ -241,11 +247,13 @@ export default function ReportingGenerateScreen({ navigation, route }) {
           </View>
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outer: { flex: 1, backgroundColor: theme.colors.background },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.colors.background },
   container: { flex: 1, backgroundColor: theme.colors.background },
   content: { padding: theme.spacing.md, paddingBottom: theme.spacing.xxl },
@@ -288,7 +296,7 @@ const styles = StyleSheet.create({
   },
   retryText: { color: theme.colors.accent, fontWeight: "600", fontSize: 14 },
   emptyCard: {
-    backgroundColor: theme.colors.primaryLight,
+    backgroundColor: theme.colors.pastels.pink,
     borderRadius: theme.radius.lg,
     padding: theme.spacing.xl,
     borderWidth: 1,

@@ -67,8 +67,26 @@ export function AuthProvider({ children }) {
     return token || session?.access_token;
   };
 
+  /** Synchronise le rôle métier avec Supabase (JWT user_metadata.app_role) pour le filtrage API. */
+  const updateAppRole = async (appRole) => {
+    if (!supabase || !appRole) return { error: null };
+    const { error } = await supabase.auth.updateUser({
+      data: { app_role: appRole },
+    });
+    if (!error) {
+      const {
+        data: { session: next },
+      } = await supabase.auth.getSession();
+      setSession(next ?? null);
+      if (next?.access_token) await AsyncStorage.setItem(AUTH_TOKEN_KEY, next.access_token);
+    }
+    return { error };
+  };
+
   return (
-    <AuthContext.Provider value={{ session, loading, signIn, signOut, resetPassword, getToken, isAuthConfigured }}>
+    <AuthContext.Provider
+      value={{ session, loading, signIn, signOut, resetPassword, getToken, updateAppRole, isAuthConfigured }}
+    >
       {children}
     </AuthContext.Provider>
   );

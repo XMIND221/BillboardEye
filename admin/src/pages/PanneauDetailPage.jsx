@@ -78,8 +78,13 @@ export default function PanneauDetailPage() {
       <section className="detail-grid">
         <article className="detail-card">
           <h2>Informations panneau</h2>
+          {panneau.nomZone ? (
+            <p>
+              <strong>Zone (gestionnaire):</strong> {panneau.nomZone}
+            </p>
+          ) : null}
           <p>
-            <strong>Adresse:</strong> {panneau.localisation?.adresse || "Adresse non renseignée"}
+            <strong>Adresse / repère:</strong> {panneau.localisation?.adresse || "—"}
           </p>
           <p>
             <strong>Latitude / Longitude:</strong> {panneau.localisation?.latitude} /{" "}

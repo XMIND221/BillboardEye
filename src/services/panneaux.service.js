@@ -11,11 +11,18 @@ const normalizePanneau = (row) => {
   const latitude = row?.localisation?.latitude ?? row?.latitude ?? null;
   const longitude = row?.localisation?.longitude ?? row?.longitude ?? null;
   const adresse = row?.localisation?.adresse ?? row?.adresse ?? "";
+  const nomZone =
+    row?.nomZone ??
+    row?.nom_zone ??
+    row?.localisation?.nomZone ??
+    row?.localisation?.nom_zone ??
+    "";
 
   return {
     id: row.id,
     entreprise: row.entreprise,
     projetId: row.projet_id || row.projetId || null,
+    nomZone: nomZone ? String(nomZone).trim() : "",
     localisation: {
       latitude,
       longitude,
@@ -31,6 +38,8 @@ const createPanneau = async (data) => {
   const latitude = data.localisation?.latitude ?? data.latitude;
   const longitude = data.localisation?.longitude ?? data.longitude;
   const adresse = data.localisation?.adresse ?? data.adresse;
+  const nomZoneRaw = data.nomZone ?? data.nom_zone ?? data.localisation?.nomZone ?? "";
+  const nom_zone = nomZoneRaw != null && String(nomZoneRaw).trim() !== "" ? String(nomZoneRaw).trim() : null;
   const parsedLatitude = Number(latitude);
   const parsedLongitude = Number(longitude);
   const createdAt = data.createdAt ? new Date(data.createdAt).toISOString() : new Date().toISOString();
@@ -38,7 +47,10 @@ const createPanneau = async (data) => {
   const basePayload = {
     entreprise: data.entreprise,
     statut: data.statut || "pending",
+    ...(nom_zone != null ? { nom_zone } : {}),
   };
+
+  const nomZoneField = nom_zone != null ? { nom_zone } : {};
 
   const payloadVariants = [
     // Schema JSON "localisation" + camelCase
@@ -84,6 +96,7 @@ const createPanneau = async (data) => {
       },
       nombreFaces: data.nombreFaces ?? 1,
       createdAt,
+      ...nomZoneField,
     },
     {
       entreprise: data.entreprise,
@@ -93,6 +106,7 @@ const createPanneau = async (data) => {
       adresse: adresse || "",
       nombre_faces: data.nombreFaces ?? 1,
       created_at: createdAt,
+      ...nomZoneField,
     },
     // Variante minimale
     {
@@ -100,6 +114,7 @@ const createPanneau = async (data) => {
       latitude: parsedLatitude,
       longitude: parsedLongitude,
       adresse: adresse || "",
+      ...nomZoneField,
     },
   ];
 

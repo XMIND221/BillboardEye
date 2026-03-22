@@ -16,7 +16,10 @@ export default function PanelCard({ panneau, projetNom }) {
   return (
     <View style={styles.card}>
       <Text style={styles.title}>{panneau.entreprise}</Text>
-      <Text style={styles.meta}>{panneau.localisation?.adresse || "Adresse non renseignée"}</Text>
+      {!!panneau.nomZone && <Text style={styles.zoneLabel}>Zone : {panneau.nomZone}</Text>}
+      <Text style={styles.meta}>
+        {panneau.localisation?.adresse || panneau.nomZone || "Adresse non renseignée"}
+      </Text>
       <Text style={styles.meta}>Campagne : {projetNom || panneau.projetId || "Non liée"}</Text>
       <Text style={styles.meta}>
         {panneau.localisation?.latitude}, {panneau.localisation?.longitude}
@@ -63,6 +66,7 @@ const styles = StyleSheet.create({
     ...theme.shadows.sm,
   },
   title: { fontSize: 17, fontWeight: "700", marginBottom: 4, color: theme.colors.text },
+  zoneLabel: { fontSize: 15, fontWeight: "700", color: theme.colors.accent, marginBottom: 4 },
   meta: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: 2 },
   status: { marginTop: theme.spacing.sm, fontWeight: "600", fontSize: 13 },
   photosRow: { flexDirection: "row", marginTop: theme.spacing.md, gap: theme.spacing.sm },

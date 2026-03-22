@@ -1,0 +1,12 @@
+{{! Liste des zones — {{#each zones}} dans body.hbs }}
+<section class="report-page">
+  <header class="zones-header">
+    <p class="zones-eyebrow">Détail</p>
+    <h2 class="zones-title">Zones de la campagne</h2>
+  </header>
+  <div class="zones-list">
+    {{#each zones}}
+      {{> zone-card}}
+    {{/each}}
+  </div>
+</section>

@@ -20,10 +20,26 @@ function formatGps(lat: unknown, lng: unknown): string {
 const PLACEHOLDER =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect fill='%23e5e7eb' width='100%25' height='100%25'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-size='14' font-family='sans-serif'%3EPhoto indisponible%3C/text%3E%3C/svg%3E"
 
+export type MapLegendItem = {
+  num: number
+  numPadded: string
+  name: string
+  /** @deprecated utiliser pinUsesRealGps */
+  onMap?: boolean
+  /** true = coordonnées réelles ; false = position indicative (sans GPS) */
+  pinUsesRealGps?: boolean
+}
+
 type ApiReport = {
   projet?: Record<string, unknown>
   panneaux?: Array<Record<string, unknown>>
   summary?: { total?: number }
+  /** Renseigné par l’API à la création de session PDF (carte Mapbox + légende) */
+  __renderExtras?: {
+    mapImageUrl?: string
+    mapCaption?: string
+    mapLegend?: MapLegendItem[]
+  }
 }
 
 const DEFAULT_VISUAL_CAPTION =
@@ -39,9 +55,10 @@ export function mapApiReportToCampaign(report: ApiReport) {
     const faceA = photos.faceA?.url || PLACEHOLDER
     const faceB = photos.faceB?.url || PLACEHOLDER
     const loc = (p.localisation || {}) as Record<string, unknown>
+    const nomGestion = String((p as { nomZone?: string }).nomZone ?? (p as { nom_zone?: string }).nom_zone ?? "").trim()
     return {
       id: String(p.id || `zone-${index}`),
-      name: String(loc.adresse || `Zone ${index + 1}`),
+      name: nomGestion || String(loc.adresse || `Zone ${index + 1}`),
       faceAImage: faceA,
       faceBImage: faceB,
       gpsCoordinates: formatGps(loc.latitude, loc.longitude),
@@ -58,6 +75,12 @@ export function mapApiReportToCampaign(report: ApiReport) {
   const legendeC = projet.legendeCarte ?? projet.legende_carte
   const instructions = projet.instructions ? String(projet.instructions).trim() : ""
 
+  const extras = report.__renderExtras
+  const mapFromApi = extras?.mapImageUrl && String(extras.mapImageUrl).trim() ? String(extras.mapImageUrl).trim() : undefined
+  const captionFromApi =
+    extras?.mapCaption && String(extras.mapCaption).trim() ? String(extras.mapCaption).trim() : undefined
+  const legendFromApi = Array.isArray(extras?.mapLegend) ? extras.mapLegend : undefined
+
   return {
     campaignName: String(projet.titreRapport || projet.nom || "Rapport campagne"),
     date: formatReportDate(projet.date),
@@ -66,12 +89,16 @@ export function mapApiReportToCampaign(report: ApiReport) {
     zoneLine: projet.zone ? String(projet.zone).trim() : undefined,
     summary: {
       zonesCount: panneaux.length,
-      billboardsCount: Number(report.summary?.total ?? panneaux.length),
+      billboardsCount: panneaux.length,
       duration: String(projet.duree || "N/R"),
       /** Note / consignes affichées dans le résumé (bloc texte) */
       noteResume: instructions || undefined,
-      /** Légende de la carte illustrative */
-      mapCaption: legendeC ? String(legendeC) : DEFAULT_MAP_CAPTION,
+      /** Légende sous la carte */
+      mapCaption: captionFromApi || (legendeC ? String(legendeC) : DEFAULT_MAP_CAPTION),
+      /** URL image Mapbox (serveur API) */
+      mapImageUrl: mapFromApi,
+      /** Correspondance numéros ↔ noms de zones */
+      mapLegend: legendFromApi,
     },
     zones,
     visualImageUrl: firstPhoto,

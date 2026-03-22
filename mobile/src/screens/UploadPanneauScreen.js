@@ -54,6 +54,8 @@ export default function UploadPanneauScreen({ navigation }) {
   const [newCampaignEntreprise, setNewCampaignEntreprise] = useState("");
   const [newCampaignZone, setNewCampaignZone] = useState("");
   const [adresse, setAdresse] = useState("");
+  /** Zone issue de la liste définie par le gestionnaire (campagne) */
+  const [selectedManagerZone, setSelectedManagerZone] = useState("");
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
   const [faceAUri, setFaceAUri] = useState("");
@@ -78,12 +80,12 @@ export default function UploadPanneauScreen({ navigation }) {
 
   const canValidate = useMemo(() => {
     const hasImages = Boolean(faceAUri && faceBUri);
-    const hasAdresse = Boolean(adresse.trim());
+    const hasAdresse = Boolean(adresse.trim() || selectedManagerZone.trim());
     if (modeNewCampaign) {
       return hasImages && hasAdresse && newCampaignNom.trim() && newCampaignEntreprise.trim();
     }
     return hasImages && hasAdresse && selectedCampaignId;
-  }, [faceAUri, faceBUri, adresse, modeNewCampaign, newCampaignNom, newCampaignEntreprise, selectedCampaignId]);
+  }, [faceAUri, faceBUri, adresse, selectedManagerZone, modeNewCampaign, newCampaignNom, newCampaignEntreprise, selectedCampaignId]);
 
   const loadCampaigns = useCallback(async () => {
     try {
@@ -202,10 +204,14 @@ export default function UploadPanneauScreen({ navigation }) {
         entreprise = created.entreprise || newCampaignEntreprise.trim();
       }
 
+      const nomZone = selectedManagerZone.trim() || adresse.trim();
+      const adresseFinale = adresse.trim() || selectedManagerZone.trim();
+
       const panneau = await createPanneau({
         entreprise,
         projetId,
-        adresse: adresse.trim(),
+        nomZone: nomZone || undefined,
+        adresse: adresseFinale,
         latitude: lat,
         longitude: lng,
         nombreFaces: 2,
@@ -232,7 +238,7 @@ export default function UploadPanneauScreen({ navigation }) {
       }
 
       const localisation = {
-        adresse: adresse.trim(),
+        adresse: adresseFinale,
         latitude: lat,
         longitude: lng,
       };
@@ -241,6 +247,7 @@ export default function UploadPanneauScreen({ navigation }) {
         serverId: panneau.id,
         entreprise: panneau.entreprise || entreprise,
         projetId,
+        nomZone: panneau.nomZone || nomZone,
         localisation,
         nombreFaces: 2,
         statut: STATUS_SYNCED,
@@ -273,6 +280,7 @@ export default function UploadPanneauScreen({ navigation }) {
             setFaceAUri("");
             setFaceBUri("");
             setAdresse("");
+            setSelectedManagerZone("");
             if (modeNewCampaign) {
               setModeNewCampaign(false);
               setSelectedCampaignId(finalProjetId);
@@ -399,12 +407,45 @@ export default function UploadPanneauScreen({ navigation }) {
         </>
       )}
 
-      <Text style={styles.label}>Zone / Adresse</Text>
+      {!modeNewCampaign && selectedCampaign?.zones?.length > 0 ? (
+        <>
+          <Text style={styles.label}>Zone (définie par le gestionnaire)</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
+            {selectedCampaign.zones.map((z) => {
+              const label = String(z).trim();
+              if (!label) return null;
+              const selected = label === selectedManagerZone;
+              return (
+                <TouchableOpacity
+                  key={label}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                  onPress={() => {
+                    setSelectedManagerZone(selected ? "" : label);
+                    setError("");
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.chipText, selected && styles.chipTextSelected]} numberOfLines={2}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <Text style={styles.hintBelowChips}>Optionnel : précisez un repère terrain ci-dessous.</Text>
+        </>
+      ) : null}
+
+      <Text style={styles.label}>Adresse / repère terrain</Text>
       <TextInput
         style={styles.input}
         value={adresse}
         onChangeText={(t) => { setAdresse(t); setError(""); }}
-        placeholder="ex: Plateau, Rue X..."
+        placeholder={
+          !modeNewCampaign && selectedCampaign?.zones?.length > 0
+            ? "ex: angle Rue X / Av. Y (optionnel si zone choisie)"
+            : "ex: Plateau, Rue X..."
+        }
         placeholderTextColor={theme.colors.textMuted}
       />
 
@@ -498,7 +539,8 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.accent,
   },
   retryText: { color: theme.colors.accent, fontWeight: "600", fontSize: 14 },
-  chipsScroll: { marginBottom: theme.spacing.md },
+  chipsScroll: { marginBottom: theme.spacing.sm },
+  hintBelowChips: { fontSize: 13, color: theme.colors.textMuted, marginBottom: theme.spacing.md },
   chip: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.lg,

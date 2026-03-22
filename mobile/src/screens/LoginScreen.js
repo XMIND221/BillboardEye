@@ -4,12 +4,12 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Image,
+  ScrollView,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
 import Card from "../components/Card";
@@ -17,6 +17,7 @@ import Button from "../components/Button";
 import Input from "../components/Input";
 
 export default function LoginScreen() {
+  const insets = useSafeAreaInsets();
   const { signIn, resetPassword } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -57,50 +58,63 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View style={styles.header}>
-        <Image source={require("../../assets/logo.png")} style={styles.logoImage} resizeMode="contain" />
-        <Text style={styles.tagline}>Gestion terrain professionnelle</Text>
-      </View>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[styles.hero, { paddingTop: Math.max(insets.top, 12) + 16 }]}>
+          <View style={styles.heroInner} />
+        </View>
 
-      <View style={styles.content}>
-        <Card variant="elevated" style={styles.card}>
-          <Text style={styles.title}>Connexion</Text>
-          <Text style={styles.subtitle}>Accédez à votre espace</Text>
+        <View style={[styles.cardWrap, { paddingBottom: insets.bottom + 24 }]}>
+          <Card variant="elevated" style={styles.card}>
+            <View style={styles.brandBlock}>
+              <View style={styles.logoBox}>
+                <Text style={styles.logoText}>BE</Text>
+              </View>
+              <Text style={styles.brandTitle}>BillboardEye</Text>
+              <Text style={styles.brandSub}>Suivi de campagnes d'affichage</Text>
+            </View>
 
-          <Input
-            style={styles.input}
-            placeholder="Email"
-            value={email}
-            onChangeText={(t) => { setEmail(t); setError(""); }}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-          />
+            <Text style={styles.title}>Connexion</Text>
+            <Text style={styles.subtitle}>Accédez à votre espace</Text>
 
-          <Input
-            style={styles.input}
-            placeholder="Mot de passe"
-            value={password}
-            onChangeText={(t) => { setPassword(t); setError(""); }}
-            secureTextEntry
-            autoComplete="password"
-          />
+            <Input
+              style={styles.input}
+              placeholder="nom@entreprise.fr"
+              value={email}
+              onChangeText={(t) => {
+                setEmail(t);
+                setError("");
+              }}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+            />
 
-          {!!error && <Text style={styles.error}>{error}</Text>}
+            <Input
+              style={styles.input}
+              placeholder="Mot de passe"
+              value={password}
+              onChangeText={(t) => {
+                setPassword(t);
+                setError("");
+              }}
+              secureTextEntry
+              autoComplete="password"
+            />
 
-          <TouchableOpacity style={styles.forgotLink} onPress={handleForgotPassword} disabled={loading}>
-            <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
-          </TouchableOpacity>
+            {!!error && <Text style={styles.error}>{error}</Text>}
 
-          <Button
-            title="Se connecter"
-            onPress={handleLogin}
-            loading={loading}
-            disabled={loading}
-            style={styles.button}
-          />
-        </Card>
-      </View>
+            <TouchableOpacity style={styles.forgotLink} onPress={handleForgotPassword} disabled={loading}>
+              <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
+            </TouchableOpacity>
+
+            <Button title="Se connecter" onPress={handleLogin} loading={loading} disabled={loading} style={styles.button} />
+          </Card>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -108,38 +122,64 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.backgroundDark,
-  },
-  header: {
-    paddingTop: 60,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.xxl,
-    alignItems: "center",
-  },
-  logoImage: {
-    width: 120,
-    height: 120,
-    marginBottom: theme.spacing.sm,
-  },
-  tagline: {
-    marginTop: theme.spacing.sm,
-    fontSize: 16,
-    color: "rgba(255,255,255,0.8)",
-    letterSpacing: 0.3,
-  },
-  content: {
-    flex: 1,
     backgroundColor: theme.colors.background,
-    borderTopLeftRadius: theme.radius.xl,
-    borderTopRightRadius: theme.radius.xl,
-    padding: theme.spacing.lg,
-    paddingTop: theme.spacing.xl,
+  },
+  scroll: {
+    flexGrow: 1,
+  },
+  hero: {
+    height: 128,
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  heroInner: {
+    flex: 1,
+    opacity: 0.15,
+    backgroundColor: theme.colors.primaryForeground,
+    borderRadius: theme.radius.lg,
+  },
+  cardWrap: {
+    marginTop: -56,
+    paddingHorizontal: theme.spacing.lg,
   },
   card: {
     padding: theme.spacing.xl,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  brandBlock: {
+    alignItems: "center",
+    marginBottom: theme.spacing.lg,
+  },
+  logoBox: {
+    width: 64,
+    height: 64,
+    borderRadius: theme.radius.lg,
+    backgroundColor: theme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: theme.spacing.md,
+    ...theme.shadows.md,
+  },
+  logoText: {
+    color: theme.colors.primaryForeground,
+    fontWeight: "800",
+    fontSize: 22,
+  },
+  brandTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: theme.colors.text,
+  },
+  brandSub: {
+    marginTop: 4,
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    textAlign: "center",
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "800",
     color: theme.colors.text,
     marginBottom: theme.spacing.xs,
@@ -162,7 +202,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   forgotText: {
-    color: theme.colors.accent,
+    color: theme.colors.primary,
     fontSize: 14,
     fontWeight: "600",
   },

@@ -1,44 +1,53 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { theme } from "../theme";
 
 const ROLE_CONFIG = {
   gestionnaire: {
     label: "Mode Gestionnaire",
     sub: "Créer campagnes, gérer les missions",
-    color: theme.colors.accent,
     bg: theme.colors.pastels.pink,
   },
   agent: {
     label: "Mode Agent terrain",
     sub: "Exécuter les missions, capturer les panneaux",
-    color: theme.colors.accent,
     bg: theme.colors.pastels.blue,
   },
   reporting: {
     label: "Mode Reporting",
     sub: "Générer des rapports PDF professionnels",
-    color: theme.colors.primary,
     bg: theme.colors.pastels.purple,
   },
 };
 
 export default function RoleGateScreen({ onSelectRole, onSignOut }) {
+  const insets = useSafeAreaInsets();
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Image source={require("../../assets/logo.png")} style={styles.logoImage} resizeMode="contain" />
+      <View style={[styles.hero, { paddingTop: Math.max(insets.top, 12) + 20 }]}>
+        <View style={styles.heroBrand}>
+          <View style={styles.logoBox}>
+            <Text style={styles.logoText}>BE</Text>
+          </View>
+          <Text style={styles.heroTitle}>BillboardEye</Text>
+        </View>
         <Text style={styles.tagline}>Choisissez votre mode</Text>
       </View>
 
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
+        showsVerticalScrollIndicator={false}
+      >
         {onSignOut && (
           <TouchableOpacity style={styles.signOutButton} onPress={onSignOut} activeOpacity={0.85}>
             <Text style={styles.signOutText}>Se déconnecter</Text>
           </TouchableOpacity>
         )}
 
-        {(["gestionnaire", "agent", "reporting"]).map((role) => {
+        {["gestionnaire", "agent", "reporting"].map((role) => {
           const config = ROLE_CONFIG[role];
           return (
             <TouchableOpacity
@@ -47,12 +56,12 @@ export default function RoleGateScreen({ onSelectRole, onSignOut }) {
               onPress={() => onSelectRole(role)}
               activeOpacity={0.85}
             >
-              <Text style={[styles.roleLabel, { color: config.color }]}>{config.label}</Text>
+              <Text style={styles.roleLabel}>{config.label}</Text>
               <Text style={styles.roleSub}>{config.sub}</Text>
             </TouchableOpacity>
           );
         })}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -60,27 +69,47 @@ export default function RoleGateScreen({ onSelectRole, onSignOut }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.backgroundDark,
+    backgroundColor: theme.colors.background,
   },
-  header: {
-    paddingTop: 60,
+  hero: {
+    backgroundColor: theme.colors.primary,
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.xl,
     alignItems: "center",
   },
-  logoImage: {
-    width: 100,
-    height: 100,
+  heroBrand: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     marginBottom: theme.spacing.sm,
   },
-  tagline: {
-    marginTop: theme.spacing.sm,
+  logoBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoText: {
+    color: theme.colors.primaryForeground,
+    fontWeight: "800",
     fontSize: 16,
-    color: "rgba(255,255,255,0.8)",
-    letterSpacing: 0.3,
+  },
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: theme.colors.primaryForeground,
+  },
+  tagline: {
+    fontSize: 15,
+    color: "rgba(255,255,255,0.9)",
+  },
+  scroll: {
+    flex: 1,
+    marginTop: -20,
   },
   content: {
-    flex: 1,
     backgroundColor: theme.colors.background,
     borderTopLeftRadius: theme.radius.xl,
     borderTopRightRadius: theme.radius.xl,
@@ -100,11 +129,14 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.lg,
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     ...theme.shadows.sm,
   },
   roleLabel: {
     fontWeight: "700",
     fontSize: 17,
+    color: theme.colors.text,
   },
   roleSub: {
     color: theme.colors.textSecondary,

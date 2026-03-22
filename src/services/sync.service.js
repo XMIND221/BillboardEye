@@ -46,6 +46,7 @@ const syncData = async (data) => {
         id: panneau.id,
         entreprise: panneau.entreprise,
         projetId: panneau.projetId,
+        nomZone: panneau.nomZone ?? panneau.nom_zone,
         localisation: {
           latitude: Number(latitude),
           longitude: Number(longitude),

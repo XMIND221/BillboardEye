@@ -1,6 +1,16 @@
 const { createProjet, getAllProjets, getProjetById } = require("../services/projets.service");
+const { AUTH_REQUIRED } = require("../middlewares/auth.middleware");
+const { getAppRole, canCreateProjet, filterProjetsForUser } = require("../lib/app-role");
+const { assertProjetAccess } = require("../lib/access-control");
 
 const createProjetHandler = async (req, res) => {
+  if (AUTH_REQUIRED && req.user && !canCreateProjet(getAppRole(req.user))) {
+    return res.status(403).json({
+      success: false,
+      message: "Permission refusee : seuls les gestionnaires peuvent creer une campagne.",
+    });
+  }
+
   const {
     nom,
     entreprise,
@@ -14,6 +24,7 @@ const createProjetHandler = async (req, res) => {
     couleurPrincipale,
     titreRapport,
     assignedAgent,
+    statut,
   } = req.body || {};
 
   if (!nom) {
@@ -44,6 +55,7 @@ const createProjetHandler = async (req, res) => {
       couleurPrincipale,
       titreRapport,
       assignedAgent,
+      statut,
     });
 
     return res.status(201).json({
@@ -58,12 +70,13 @@ const createProjetHandler = async (req, res) => {
   }
 };
 
-const getAllProjetsHandler = async (_req, res) => {
+const getAllProjetsHandler = async (req, res) => {
   try {
     const projets = await getAllProjets();
+    const data = filterProjetsForUser(req.user, projets);
     return res.status(200).json({
       success: true,
-      data: projets,
+      data,
     });
   } catch (_error) {
     return res.status(500).json({
@@ -86,6 +99,14 @@ const getProjetByIdHandler = async (req, res) => {
   }
 
   if (!projet) {
+    return res.status(404).json({
+      success: false,
+      message: "Projet introuvable.",
+    });
+  }
+
+  const allowed = await assertProjetAccess(req, req.params.id);
+  if (!allowed) {
     return res.status(404).json({
       success: false,
       message: "Projet introuvable.",

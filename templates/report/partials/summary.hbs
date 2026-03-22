@@ -1,0 +1,67 @@
+{{! Résumé + carte (mapImageUrl = URL Mapbox générée côté serveur) }}
+<section class="report-page report-page--summary">
+  <header class="sum-header">
+    <p class="sum-eyebrow">Aperçu</p>
+    <h2 class="sum-title">Résumé de la campagne</h2>
+  </header>
+  <div class="sum-stats">
+    <div class="stat-card">
+      <div class="stat-icon-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+      </div>
+      <p class="stat-value">{{zonesCount}}</p>
+      <p class="stat-label">zones couvertes</p>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+      </div>
+      <p class="stat-value">{{billboardsCount}}</p>
+      <p class="stat-label">panneaux actifs</p>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <p class="stat-value">{{duration}}</p>
+      <p class="stat-label">durée de campagne</p>
+    </div>
+  </div>
+  {{#if noteResume}}
+  <div class="sum-note">
+    <p class="sum-note-title">Consignes</p>
+    <p class="sum-note-body">{{noteResume}}</p>
+  </div>
+  {{/if}}
+  <figure class="map-figure">
+    <div class="map-aspect">
+      {{#if mapImageUrl}}
+      <img src="{{mapImageUrl}}" alt="Carte de la campagne" />
+      {{else}}
+      <div class="map-placeholder">Carte non disponible (renseigner les GPS des panneaux et MAPBOX_ACCESS_TOKEN sur le serveur)</div>
+      {{/if}}
+    </div>
+    {{#if mapCaption}}
+    <figcaption class="map-caption">{{mapCaption}}</figcaption>
+    {{/if}}
+    {{#if mapLegend}}
+    <div class="map-legend">
+      <p class="map-legend-title">Correspondance des points sur la carte</p>
+      <p class="map-legend-hint">Chaque repère numéroté sur la carte correspond au panneau du même numéro dans la section Détail (01, 02, etc.).</p>
+      <ul class="map-legend-list">
+        {{#each mapLegend}}
+        <li class="map-legend-item">
+          <span class="map-legend-badge">{{numPadded}}</span>
+          <span class="map-legend-name">{{name}}</span>
+          {{#if pinUsesRealGps}}
+          <span class="map-legend-tag map-legend-tag--ok">sur la carte (GPS)</span>
+          {{else}}
+          <span class="map-legend-tag map-legend-tag--warn">position indicative (GPS manquant)</span>
+          {{/if}}
+        </li>
+        {{/each}}
+      </ul>
+    </div>
+    {{/if}}
+  </figure>
+</section>

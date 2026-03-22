@@ -21,9 +21,11 @@ const normalizeProjet = (row) => {
     legendeCarte: row.legende_carte || row.legendeCarte || "",
     clientLogoUrl: row.client_logo_url || row.clientLogoUrl || "",
     entrepriseLogoUrl: row.entreprise_logo_url || row.entrepriseLogoUrl || "",
-    couleurPrincipale: row.couleur_principale || row.couleurPrincipale || "#2563EB",
+    couleurPrincipale: row.couleur_principale || row.couleurPrincipale || "#E11D48",
     titreRapport: row.titre_rapport || row.titreRapport || "",
     assignedAgent: row.assigned_agent || row.assignedAgent || "",
+    /** planned | active | completed | archived */
+    statut: row.statut || "active",
   };
 };
 
@@ -45,6 +47,7 @@ const createProjet = async (data) => {
     couleur_principale: data.couleurPrincipale || "#2563EB",
     titre_rapport: data.titreRapport || "",
     assigned_agent: data.assignedAgent || "",
+    statut: data.statut || "active",
   };
 
   const fullPayloadCamelCase = {
@@ -62,6 +65,7 @@ const createProjet = async (data) => {
     couleurPrincipale: data.couleurPrincipale || "#2563EB",
     titreRapport: data.titreRapport || "",
     assignedAgent: data.assignedAgent || "",
+    statut: data.statut || "active",
   };
 
   const minimalPayload = {

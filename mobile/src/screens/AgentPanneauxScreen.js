@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, StyleSheet, FlatList, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity } from "react-native";
 import { theme } from "../theme";
+import AppHeader from "../components/AppHeader";
 import PanelCard from "../components/PanelCard";
 import { getAllOfflineData } from "../services/offlineStorage";
 import { getRapport, getProjets } from "../services/api";
@@ -60,25 +61,44 @@ export default function AgentPanneauxScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Mes panneaux validés</Text>
-      <Text style={styles.subtitle}>Historique des panneaux enregistrés lors des missions terrain.</Text>
-      <FlatList
+    <View style={styles.root}>
+      <AppHeader />
+      <View style={styles.container}>
+        <View style={styles.headRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Mes panneaux</Text>
+            <Text style={styles.subtitle}>Panneaux validés lors des missions terrain.</Text>
+          </View>
+          <TouchableOpacity style={styles.uploadBtn} onPress={() => navigation.navigate("UploadPanneau")} activeOpacity={0.85}>
+            <Text style={styles.uploadBtnText}>Upload</Text>
+          </TouchableOpacity>
+        </View>
+        <FlatList
         data={panneaux}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.accent} />}
         renderItem={({ item }) => <PanelCard panneau={item} projetNom={projetsById[item.projetId]} />}
         ListEmptyComponent={<Text style={styles.empty}>Aucun panneau validé pour le moment.</Text>}
-      />
+        />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing.lg },
-  title: { fontSize: 24, fontWeight: "800", color: theme.colors.text },
-  subtitle: { marginTop: 4, marginBottom: theme.spacing.lg, color: theme.colors.textSecondary, fontSize: 14 },
+  root: { flex: 1, backgroundColor: theme.colors.background },
+  container: { flex: 1, paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.md },
+  headRow: { flexDirection: "row", alignItems: "flex-start", marginBottom: theme.spacing.md, gap: theme.spacing.sm },
+  title: { fontSize: 22, fontWeight: "800", color: theme.colors.text },
+  subtitle: { marginTop: 4, color: theme.colors.textSecondary, fontSize: 14 },
+  uploadBtn: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: theme.radius.md,
+  },
+  uploadBtnText: { color: theme.colors.primaryForeground, fontWeight: "700", fontSize: 13 },
   list: { paddingBottom: theme.spacing.xxl },
   empty: { color: theme.colors.textMuted, marginTop: theme.spacing.xl, textAlign: "center", fontSize: 15 },
 });

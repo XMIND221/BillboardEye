@@ -1,4 +1,5 @@
 const { createSession, getSession } = require("../services/pdfRenderSession.service");
+const { buildMapReportContext } = require("../services/map-report-payload");
 
 const getInternalSecret = () =>
   process.env.PDF_RENDER_INTERNAL_SECRET ||
@@ -28,7 +29,16 @@ const createPdfRenderSessionHandler = (req, res) => {
     return res.status(400).json({ success: false, message: "Payload rapport invalide." });
   }
   try {
-    const token = createSession(payload);
+    const ctx = buildMapReportContext(payload);
+    const enriched = {
+      ...payload,
+      __renderExtras: {
+        mapImageUrl: ctx.mapImageUrl || "",
+        mapCaption: ctx.mapCaption || "",
+        mapLegend: ctx.mapLegend || [],
+      },
+    };
+    const token = createSession(enriched);
     return res.status(200).json({ success: true, data: { token } });
   } catch (e) {
     console.error("[internal-pdf] create session:", e?.message || e);

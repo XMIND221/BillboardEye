@@ -7,6 +7,8 @@
     "start": "node scripts/start-with-renderer.js",
     "start:api-only": "node server.js",
     "dev": "nodemon server.js",
+    "configure:prod": "node scripts/configure-production.js",
+    "roles:sync": "node scripts/set-app-roles.js",
     "diagnose-pdf": "node scripts/diagnose-pdf.js",
     "mobile:start": "npm --prefix mobile run start",
     "mobile:start:clear": "npm --prefix mobile run start:clear",
@@ -15,7 +17,7 @@
     "web": "npm --prefix mobile run web",
     "ui:v0": "npm --prefix v0_ui_import run dev",
     "ui:v0:build": "npm --prefix v0_ui_import run build",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/*.test.js"
   },
   "keywords": [],
   "author": "",
@@ -29,6 +31,9 @@
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "handlebars": "^4.7.8",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",
     "node-fetch": "^2.7.0",

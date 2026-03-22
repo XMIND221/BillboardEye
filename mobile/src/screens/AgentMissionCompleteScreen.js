@@ -75,7 +75,7 @@ export default function AgentMissionCompleteScreen({ navigation, route }) {
         <Button
           title="Voir mes panneaux validés"
           variant="secondary"
-          onPress={() => navigation.navigate("AgentPanneaux")}
+          onPress={() => navigation.navigate("PanneauxTab", { screen: "AgentPanneaux" })}
           style={styles.secondaryButton}
         />
       </View>

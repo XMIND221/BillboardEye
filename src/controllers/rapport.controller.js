@@ -1,5 +1,8 @@
 const { getPanneauReport, getProjetReport } = require("../services/rapport.service");
 const { generatePanneauPDF, generateProjetPDF, diagnosePhotoLoad } = require("../services/pdf.service");
+const { assertProjetAccess, assertPanneauAccess } = require("../lib/access-control");
+
+const json404 = (res, message) => res.status(404).json({ success: false, message });
 
 const MAX_PANELS_PER_REPORT = 500;
 const MAX_TEXT_LEN = 5000;
@@ -64,6 +67,9 @@ const sanitizeOverrides = (overrides = {}) => {
 };
 
 const getPanneauReportHandler = async (req, res) => {
+  if (!(await assertPanneauAccess(req, req.params.id))) {
+    return json404(res, "Panneau introuvable.");
+  }
   let report;
 
   try {
@@ -90,6 +96,9 @@ const getPanneauReportHandler = async (req, res) => {
 };
 
 const getPanneauReportPDFHandler = async (req, res) => {
+  if (!(await assertPanneauAccess(req, req.params.id))) {
+    return json404(res, "Panneau introuvable.");
+  }
   let report;
 
   try {
@@ -122,6 +131,9 @@ const getPanneauReportPDFHandler = async (req, res) => {
 };
 
 const getPanneauReportPDFUrlHandler = async (req, res) => {
+  if (!(await assertPanneauAccess(req, req.params.id))) {
+    return json404(res, "Panneau introuvable.");
+  }
   let report;
 
   try {
@@ -159,6 +171,9 @@ const getPanneauReportPDFUrlHandler = async (req, res) => {
 };
 
 const getProjetReportHandler = async (req, res) => {
+  if (!(await assertProjetAccess(req, req.params.id))) {
+    return json404(res, "Campagne introuvable.");
+  }
   let report;
 
   try {
@@ -231,14 +246,16 @@ const applyProjetOverrides = (report, overrides = {}) => {
     .map((p) => {
       const ov = byId.get(String(p.id));
       if (!ov) return p;
+      const zoneLabel = ov.zoneName != null ? String(ov.zoneName) : null;
       return {
         ...p,
+        nomZone: zoneLabel != null ? zoneLabel : p.nomZone,
         observationsFaceA: ov.observationsFaceA != null ? String(ov.observationsFaceA) : p.observationsFaceA,
         observationsFaceB: ov.observationsFaceB != null ? String(ov.observationsFaceB) : p.observationsFaceB,
         disabledInReport: ov.enabled === false,
         localisation: {
           ...(p.localisation || {}),
-          adresse: ov.zoneName != null ? String(ov.zoneName) : p.localisation?.adresse,
+          adresse: zoneLabel != null ? zoneLabel : p.localisation?.adresse,
           latitude: ov.latitude != null && ov.latitude !== "" ? Number(ov.latitude) : p.localisation?.latitude,
           longitude: ov.longitude != null && ov.longitude !== "" ? Number(ov.longitude) : p.localisation?.longitude,
         },
@@ -263,6 +280,9 @@ const applyProjetOverrides = (report, overrides = {}) => {
 };
 
 const getProjetReportPDFUrlHandler = async (req, res) => {
+  if (!(await assertProjetAccess(req, req.params.id))) {
+    return json404(res, "Campagne introuvable.");
+  }
   let report;
 
   try {
@@ -302,6 +322,9 @@ const getProjetReportPDFUrlHandler = async (req, res) => {
 };
 
 const getProjetReportPDFHandler = async (req, res) => {
+  if (!(await assertProjetAccess(req, req.params.id))) {
+    return json404(res, "Campagne introuvable.");
+  }
   let report;
 
   try {
@@ -336,6 +359,9 @@ const getProjetReportPDFHandler = async (req, res) => {
 };
 
 const previewProjetReportPDFHandler = async (req, res) => {
+  if (!(await assertProjetAccess(req, req.params.id))) {
+    return json404(res, "Campagne introuvable.");
+  }
   let report;
   try {
     report = await getProjetReport(req.params.id);
@@ -359,6 +385,9 @@ const previewProjetReportPDFHandler = async (req, res) => {
 };
 
 const generateProjetReportFinalPDFHandler = async (req, res) => {
+  if (!(await assertProjetAccess(req, req.params.id))) {
+    return json404(res, "Campagne introuvable.");
+  }
   let report;
   try {
     report = await getProjetReport(req.params.id);

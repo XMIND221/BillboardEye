@@ -3,9 +3,20 @@ const {
   getAllPanneaux,
   getPanneauById,
 } = require("../services/panneaux.service");
+const { assertProjetAccess, assertPanneauAccess, filterPanneauxForUser } = require("../lib/access-control");
 
 const createPanneauHandler = async (req, res) => {
-  const { entreprise, latitude, longitude, adresse, nombreFaces, statut, projetId, createdAt } = req.body;
+  const { entreprise, latitude, longitude, adresse, nomZone, nombreFaces, statut, projetId, createdAt } = req.body;
+
+  if (projetId) {
+    const allowed = await assertProjetAccess(req, projetId);
+    if (!allowed) {
+      return res.status(403).json({
+        success: false,
+        message: "Campagne inaccessible ou permission refusee.",
+      });
+    }
+  }
 
   if (!entreprise) {
     return res.status(400).json({
@@ -34,6 +45,7 @@ const createPanneauHandler = async (req, res) => {
       latitude: Number(latitude),
       longitude: Number(longitude),
       adresse,
+      nomZone,
       nombreFaces,
       statut,
       projetId,
@@ -53,13 +65,14 @@ const createPanneauHandler = async (req, res) => {
   }
 };
 
-const getAllPanneauxHandler = async (_req, res) => {
+const getAllPanneauxHandler = async (req, res) => {
   try {
     const panneaux = await getAllPanneaux();
+    const data = await filterPanneauxForUser(req, panneaux);
 
     return res.status(200).json({
       success: true,
-      data: panneaux,
+      data,
     });
   } catch (_error) {
     return res.status(500).json({
@@ -82,6 +95,14 @@ const getPanneauByIdHandler = async (req, res) => {
   }
 
   if (!panneau) {
+    return res.status(404).json({
+      success: false,
+      message: "Panneau introuvable.",
+    });
+  }
+
+  const allowed = await assertPanneauAccess(req, req.params.id);
+  if (!allowed) {
     return res.status(404).json({
       success: false,
       message: "Panneau introuvable.",
