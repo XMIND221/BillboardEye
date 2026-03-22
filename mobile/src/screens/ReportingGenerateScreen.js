@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, RefreshControl } from "react-native";
 import { getProjets, getProjetPDFUrl, getProjetReport } from "../services/api";
 import { theme } from "../theme";
 import AppHeader from "../components/AppHeader";
-import { getSelectedProject } from "../services/projectStorage";
+import { getSelectedProject, getUserRole, saveSelectedProject } from "../services/projectStorage";
+import { MANAGER_REPORT_SCREENS } from "../navigation/reportScreens";
 
 const parseZones = (zoneStr) =>
   String(zoneStr || "")
@@ -13,6 +14,9 @@ const parseZones = (zoneStr) =>
 
 export default function ReportingGenerateScreen({ navigation, route }) {
   const preselectedCampaignId = route.params?.preselectedCampaignId;
+  const reportScreens = route.params?.reportScreens || MANAGER_REPORT_SCREENS;
+  const reportingUiMode = route.params?.reportingUiMode || "manager";
+
   const [campaigns, setCampaigns] = useState([]);
   const [selectedCampaignId, setSelectedCampaignId] = useState(preselectedCampaignId || "");
   const [reportData, setReportData] = useState(null);
@@ -21,56 +25,97 @@ export default function ReportingGenerateScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [generatingDirect, setGeneratingDirect] = useState(false);
   const [error, setError] = useState("");
+  const [storageRole, setStorageRole] = useState("gestionnaire");
 
-  const loadCampaigns = async () => {
+  const selectedCampaignIdRef = useRef(selectedCampaignId);
+  useEffect(() => {
+    selectedCampaignIdRef.current = selectedCampaignId;
+  }, [selectedCampaignId]);
+
+  const reportSeqRef = useRef(0);
+
+  useEffect(() => {
+    if (preselectedCampaignId) {
+      setSelectedCampaignId(preselectedCampaignId);
+    }
+  }, [preselectedCampaignId]);
+
+  const loadCampaignsWithRoleKey = useCallback(async (roleKey, preserveSelection) => {
     try {
       setError("");
       const result = await getProjets();
       setCampaigns(result);
-      if (!selectedCampaignId && result.length > 0) {
-        const selectedProject = await getSelectedProject();
-        setSelectedCampaignId(selectedProject?.id || result[0].id);
+      const currentId = selectedCampaignIdRef.current;
+
+      if (!preserveSelection || !currentId) {
+        if (result.length > 0) {
+          const preferred = await getSelectedProject(roleKey);
+          const preferredId = preferred?.id && result.some((c) => c.id === preferred.id) ? preferred.id : null;
+          setSelectedCampaignId(preferredId || result[0].id);
+        }
+      } else {
+        const still = result.some((c) => c.id === currentId);
+        if (!still && result.length > 0) {
+          setSelectedCampaignId(result[0].id);
+        }
       }
     } catch (err) {
       setError(err.message || "Impossible de charger les campagnes.");
     }
-  };
+  }, []);
 
-  const loadReport = async () => {
-    if (!selectedCampaignId) return;
+  const loadCampaigns = useCallback(
+    async (preserveSelection) => {
+      const roleKey = storageRole === "reporting" ? "reporting" : "gestionnaire";
+      await loadCampaignsWithRoleKey(roleKey, preserveSelection);
+    },
+    [storageRole, loadCampaignsWithRoleKey],
+  );
+
+  const loadReport = useCallback(async (campaignId) => {
+    const id = campaignId ?? selectedCampaignIdRef.current;
+    if (!id) return;
+    const seq = ++reportSeqRef.current;
     try {
       setLoadingReport(true);
       setError("");
-      const report = await getProjetReport(selectedCampaignId);
+      const report = await getProjetReport(id);
+      if (seq !== reportSeqRef.current) return;
       setReportData(report);
     } catch (err) {
+      if (seq !== reportSeqRef.current) return;
       setError(err.message || "Impossible de charger les données.");
     } finally {
-      setLoadingReport(false);
+      if (seq === reportSeqRef.current) {
+        setLoadingReport(false);
+      }
     }
-  };
+  }, []);
 
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await loadCampaigns();
+      const r = await getUserRole();
+      const sr = r === "reporting" ? "reporting" : "gestionnaire";
+      setStorageRole(sr);
+      await loadCampaignsWithRoleKey(sr, false);
       setLoading(false);
     };
     init();
-  }, []);
+  }, [loadCampaignsWithRoleKey]);
 
   useEffect(() => {
     if (selectedCampaignId) {
-      loadReport();
+      loadReport(selectedCampaignId);
     } else {
       setReportData(null);
     }
-  }, [selectedCampaignId]);
+  }, [selectedCampaignId, loadReport]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadCampaigns();
-    if (selectedCampaignId) await loadReport();
+    await loadCampaigns(true);
+    if (selectedCampaignIdRef.current) await loadReport(selectedCampaignIdRef.current);
     setRefreshing(false);
   };
 
@@ -79,13 +124,19 @@ export default function ReportingGenerateScreen({ navigation, route }) {
     [campaigns, selectedCampaignId],
   );
 
+  const onSelectCampaign = async (item) => {
+    setSelectedCampaignId(item.id);
+    await saveSelectedProject(item, storageRole);
+  };
+
   const prepareReport = async () => {
     if (!selectedCampaignId) return;
     try {
       setError("");
-      navigation.navigate("ReportingEditor", {
+      navigation.navigate(reportScreens.Editor, {
         campaign: selectedCampaign,
         reportData,
+        reportScreens,
       });
     } catch (_err) {}
   };
@@ -96,10 +147,11 @@ export default function ReportingGenerateScreen({ navigation, route }) {
       setGeneratingDirect(true);
       setError("");
       const result = await getProjetPDFUrl(selectedCampaignId);
-      navigation.navigate("ReportingPreview", {
+      navigation.navigate(reportScreens.Preview, {
         campaign: selectedCampaign,
         reportData,
         pdfUrl: result?.url || "",
+        reportScreens,
       });
     } catch (err) {
       setError(err.message || "Génération PDF impossible.");
@@ -112,6 +164,11 @@ export default function ReportingGenerateScreen({ navigation, route }) {
   const total = reportData?.summary?.total ?? 0;
   const completed = reportData?.summary?.completed ?? 0;
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  const subtitle =
+    reportingUiMode === "standalone"
+      ? "Sélectionnez une campagne autorisée pour votre compte, puis générez le PDF."
+      : "Rapports et PDF — uniquement les campagnes de votre périmètre gestionnaire.";
 
   if (loading) {
     return (
@@ -134,119 +191,133 @@ export default function ReportingGenerateScreen({ navigation, route }) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
         }
       >
-      <Text style={styles.title}>Rapport PDF</Text>
-      <Text style={styles.subtitle}>Sélectionnez une campagne et un template, puis générez le rapport</Text>
+        <Text style={styles.title}>Rapport PDF</Text>
+        <Text style={styles.subtitle}>{subtitle}</Text>
 
-      {!!error && (
-        <View style={styles.errorCard}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={async () => { await loadCampaigns(); if (selectedCampaignId) await loadReport(); }} activeOpacity={0.85}>
-            <Text style={styles.retryText}>Réessayer</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {campaigns.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>Aucune campagne</Text>
-          <Text style={styles.emptyText}>Créez une campagne dans le mode Gestionnaire pour générer des rapports.</Text>
-        </View>
-      ) : (
-        <>
-          <Text style={styles.label}>Campagne</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
-            {campaigns.map((item) => {
-              const selected = item.id === selectedCampaignId;
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[styles.campaignChip, selected && styles.campaignChipSelected]}
-                  onPress={() => setSelectedCampaignId(item.id)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.campaignChipText, selected && styles.campaignChipTextSelected]} numberOfLines={1}>
-                    {item.nom}
-                  </Text>
-                  <Text style={[styles.campaignChipMeta, selected && styles.campaignChipMetaSelected]} numberOfLines={1}>
-                    {item.entreprise}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-
-          {loadingReport ? (
-            <View style={styles.loadingCard}>
-              <ActivityIndicator size="small" color={theme.colors.accent} />
-              <Text style={styles.loadingText}>Chargement des données...</Text>
-            </View>
-          ) : reportData ? (
-            <View style={styles.summaryCard}>
-              <Text style={styles.sectionTitle}>Résumé</Text>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Client</Text>
-                <Text style={styles.summaryValue}>{reportData.projet?.entreprise || "-"}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Zones</Text>
-                <Text style={styles.summaryValue}>{zones.length}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Date</Text>
-                <Text style={styles.summaryValue}>
-                  {reportData.projet?.date ? new Date(reportData.projet.date).toLocaleDateString("fr-FR") : "-"}
-                </Text>
-              </View>
-
-              <View style={styles.progressBlock}>
-                <View style={styles.progressHeader}>
-                  <Text style={styles.progressLabel}>Panneaux complétés</Text>
-                  <Text style={styles.progressValue}>
-                    {completed} / {total} ({progress}%)
-                  </Text>
-                </View>
-                <View style={styles.progressBar}>
-                  <View style={[styles.progressFill, { width: `${progress}%` }]} />
-                </View>
-              </View>
-
-              {(reportData.panneaux || []).length > 0 && (
-                <View style={styles.zonesPreview}>
-                  <Text style={styles.zonesLabel}>Zones avec données</Text>
-                  {(reportData.panneaux || []).slice(0, 5).map((p, i) => (
-                    <Text key={p.id} style={styles.zoneItem}>
-                      • {p.localisation?.adresse || `Zone ${i + 1}`}
-                      {p.isComplete ? " ✓" : ""}
-                    </Text>
-                  ))}
-                  {(reportData.panneaux || []).length > 5 && (
-                    <Text style={styles.zoneMore}>+ {(reportData.panneaux || []).length - 5} autres</Text>
-                  )}
-                </View>
-              )}
-            </View>
-          ) : null}
-
-          <View style={styles.actionsRow}>
+        {!!error && (
+          <View style={styles.errorCard}>
+            <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity
-              style={[styles.secondaryActionButton, (!selectedCampaignId || !reportData) && styles.primaryButtonDisabled]}
-              onPress={prepareReport}
-              disabled={!selectedCampaignId || !reportData}
+              style={styles.retryButton}
+              onPress={async () => {
+                await loadCampaigns(true);
+                if (selectedCampaignIdRef.current) await loadReport(selectedCampaignIdRef.current);
+              }}
               activeOpacity={0.85}
             >
-              <Text style={styles.secondaryActionText}>Éditer le rapport</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.primaryActionButton, (generatingDirect || !selectedCampaignId || !reportData) && styles.primaryButtonDisabled]}
-              onPress={generateDirect}
-              disabled={generatingDirect || !selectedCampaignId || !reportData}
-              activeOpacity={0.85}
-            >
-              {generatingDirect ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Générer directement</Text>}
+              <Text style={styles.retryText}>Réessayer</Text>
             </TouchableOpacity>
           </View>
-        </>
-      )}
+        )}
+
+        {campaigns.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>Aucune campagne</Text>
+            <Text style={styles.emptyText}>
+              {reportingUiMode === "standalone"
+                ? "Aucune campagne n’est disponible pour votre compte reporting."
+                : "Créez une campagne dans l’onglet Campagnes pour générer des rapports."}
+            </Text>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.label}>Campagne</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
+              {campaigns.map((item) => {
+                const selected = item.id === selectedCampaignId;
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.campaignChip, selected && styles.campaignChipSelected]}
+                    onPress={() => onSelectCampaign(item)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[styles.campaignChipText, selected && styles.campaignChipTextSelected]} numberOfLines={1}>
+                      {item.nom}
+                    </Text>
+                    <Text style={[styles.campaignChipMeta, selected && styles.campaignChipMetaSelected]} numberOfLines={1}>
+                      {item.entreprise}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {loadingReport ? (
+              <View style={styles.loadingCard}>
+                <ActivityIndicator size="small" color={theme.colors.accent} />
+                <Text style={styles.loadingText}>Chargement des données…</Text>
+              </View>
+            ) : reportData ? (
+              <View style={styles.summaryCard}>
+                <Text style={styles.sectionTitle}>Résumé — {reportData.projet?.nom || selectedCampaign?.nom || ""}</Text>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Client</Text>
+                  <Text style={styles.summaryValue}>{reportData.projet?.entreprise || "-"}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Zones</Text>
+                  <Text style={styles.summaryValue}>{zones.length}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Date</Text>
+                  <Text style={styles.summaryValue}>
+                    {reportData.projet?.date ? new Date(reportData.projet.date).toLocaleDateString("fr-FR") : "-"}
+                  </Text>
+                </View>
+
+                <View style={styles.progressBlock}>
+                  <View style={styles.progressHeader}>
+                    <Text style={styles.progressLabel}>Panneaux complétés</Text>
+                    <Text style={styles.progressValue}>
+                      {completed} / {total} ({progress}%)
+                    </Text>
+                  </View>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: `${progress}%` }]} />
+                  </View>
+                </View>
+
+                {(reportData.panneaux || []).length > 0 && (
+                  <View style={styles.zonesPreview}>
+                    <Text style={styles.zonesLabel}>Zones avec données</Text>
+                    {(reportData.panneaux || []).slice(0, 5).map((p, i) => (
+                      <Text key={p.id} style={styles.zoneItem}>
+                        • {p.localisation?.adresse || `Zone ${i + 1}`}
+                        {p.isComplete ? " ✓" : ""}
+                      </Text>
+                    ))}
+                    {(reportData.panneaux || []).length > 5 && (
+                      <Text style={styles.zoneMore}>+ {(reportData.panneaux || []).length - 5} autres</Text>
+                    )}
+                  </View>
+                )}
+              </View>
+            ) : null}
+
+            <View style={styles.actionsRow}>
+              <TouchableOpacity
+                style={[styles.secondaryActionButton, (!selectedCampaignId || !reportData) && styles.primaryButtonDisabled]}
+                onPress={prepareReport}
+                disabled={!selectedCampaignId || !reportData}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.secondaryActionText}>Éditer le rapport</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.primaryActionButton,
+                  (generatingDirect || !selectedCampaignId || !reportData) && styles.primaryButtonDisabled,
+                ]}
+                onPress={generateDirect}
+                disabled={generatingDirect || !selectedCampaignId || !reportData}
+                activeOpacity={0.85}
+              >
+                {generatingDirect ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Générer directement</Text>}
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -364,4 +435,5 @@ const styles = StyleSheet.create({
   },
   secondaryActionText: { color: theme.colors.text, fontWeight: "700", fontSize: 14 },
   primaryButtonDisabled: { opacity: 0.6 },
+  primaryText: { color: "#fff", fontWeight: "700", fontSize: 14 },
 });

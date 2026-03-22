@@ -28,9 +28,18 @@ export default function AgentPanneauxScreen({ navigation }) {
   const loadPanneaux = useCallback(async () => {
     const [stored, projets] = await Promise.all([getAllOfflineData(), getProjets().catch(() => [])]);
     const map = {};
-    (projets || []).forEach((p) => { map[p.id] = p.nom; });
+    (projets || []).forEach((p) => {
+      map[p.id] = p.nom;
+    });
     setProjetsById(map);
+    const allowedProjetIds = new Set((projets || []).map((p) => p.id));
+    const strictFilter = allowedProjetIds.size > 0;
+
     let tracked = stored.panneaux
+      .filter((item) => {
+        if (!strictFilter) return true;
+        return !item.projetId || allowedProjetIds.has(item.projetId);
+      })
       .map((item) => ({
         id: item.serverId || item.localId,
         localId: item.localId,

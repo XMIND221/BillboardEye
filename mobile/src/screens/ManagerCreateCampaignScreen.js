@@ -114,7 +114,7 @@ export default function ManagerCreateCampaignScreen({ navigation }) {
         assignedAgent: assignedAgent.trim(),
       });
 
-      await saveSelectedProject(created);
+      await saveSelectedProject(created, "gestionnaire");
       await saveCampaignConfig(created.id, {
         clientLogoUri,
         companyLogoUri,

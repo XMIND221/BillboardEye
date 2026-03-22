@@ -1,6 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE_URL } from "../utils/config";
 
+const networkHint =
+  typeof __DEV__ !== "undefined" && __DEV__
+    ? " Vérifie aussi mobile/.env : enlève EXPO_PUBLIC_API_BASE_URL si tu veux Railway, ou mets la bonne URL."
+    : "";
+
 const AUTH_TOKEN_KEY = "@billboardeye:auth_token";
 
 const getAuthHeaders = async (customHeaders = {}) => {
@@ -41,7 +46,7 @@ const apiRequest = async (path, options = {}) => {
   } catch (error) {
     console.error("Erreur API:", error);
     if (isNetworkError(error)) {
-      throw new Error("Impossible de contacter le serveur");
+      throw new Error(`Impossible de contacter le serveur.\n${API_BASE_URL}${networkHint}`);
     }
     throw new Error(error.message || "Erreur API inconnue");
   }
@@ -148,6 +153,12 @@ export const testConnection = async () => {
 };
 
 export const isNetworkError = (error) => {
-  const message = String(error?.message || "").toLowerCase();
-  return message.includes("network request failed") || message.includes("failed to fetch");
+  const message = String(error?.message || error || "").toLowerCase();
+  return (
+    message.includes("network request failed") ||
+    message.includes("failed to fetch") ||
+    message.includes("networkerror") ||
+    message.includes("econnrefused") ||
+    message.includes("aborted")
+  );
 };

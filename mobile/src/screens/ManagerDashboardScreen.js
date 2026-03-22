@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, ScrollView } from "react-native";
-import { getProjets, getProjetReport } from "../services/api";
+import { getProjets, getPanneaux } from "../services/api";
 import { theme } from "../theme";
 import Button from "../components/Button";
 import AppHeader from "../components/AppHeader";
@@ -12,30 +12,17 @@ export default function ManagerDashboardScreen({ navigation }) {
   const [stats, setStats] = useState({
     activeCampaigns: 0,
     totalPanels: 0,
-    completedPanels: 0,
   });
 
   const loadData = useCallback(async () => {
     try {
       setError("");
-      const campaigns = await getProjets();
-      const reports = await Promise.all(
-        campaigns.map(async (campaign) => {
-          try {
-            return await getProjetReport(campaign.id);
-          } catch (_error) {
-            return null;
-          }
-        }),
-      );
-
-      const totalPanels = reports.reduce((acc, item) => acc + (item?.summary?.total || 0), 0);
-      const completedPanels = reports.reduce((acc, item) => acc + (item?.summary?.completed || 0), 0);
-
+      const [campaigns, panneaux] = await Promise.all([getProjets(), getPanneaux()]);
+      const visibleProjetIds = new Set((campaigns || []).map((c) => c.id));
+      const scoped = (panneaux || []).filter((p) => p.projetId && visibleProjetIds.has(p.projetId));
       setStats({
         activeCampaigns: campaigns.length,
-        totalPanels,
-        completedPanels,
+        totalPanels: scoped.length,
       });
     } catch (err) {
       setError(err.message || "Impossible de charger le dashboard.");
@@ -43,13 +30,13 @@ export default function ManagerDashboardScreen({ navigation }) {
   }, []);
 
   useEffect(() => {
-    const bootstrap = async () => {
-      setLoading(true);
-      await loadData();
-      setLoading(false);
-    };
-    const unsubscribe = navigation.addListener("focus", bootstrap);
-    bootstrap();
+    const unsubscribe = navigation.addListener("focus", () => {
+      (async () => {
+        setLoading(true);
+        await loadData();
+        setLoading(false);
+      })();
+    });
     return unsubscribe;
   }, [loadData, navigation]);
 
@@ -58,8 +45,6 @@ export default function ManagerDashboardScreen({ navigation }) {
     await loadData();
     setRefreshing(false);
   };
-
-  const progress = stats.totalPanels > 0 ? Math.round((stats.completedPanels / stats.totalPanels) * 100) : 0;
 
   return (
     <View style={styles.root}>
@@ -86,14 +71,9 @@ export default function ManagerDashboardScreen({ navigation }) {
             <Text style={styles.value}>{stats.activeCampaigns}</Text>
           </View>
           <View style={[styles.card, { backgroundColor: theme.colors.pastels.green }]}>
-            <Text style={styles.label}>Progression globale</Text>
-            <Text style={styles.value}>
-              {stats.completedPanels} / {stats.totalPanels} panneaux
-            </Text>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${progress}%` }]} />
-            </View>
-            <Text style={styles.progressText}>{progress}%</Text>
+            <Text style={styles.label}>Panneaux enregistrés</Text>
+            <Text style={styles.value}>{stats.totalPanels}</Text>
+            <Text style={styles.hint}>Sur vos campagnes visibles. Détail Face A/B : onglet Rapports.</Text>
           </View>
           <Button
             title="Créer une campagne"
@@ -144,23 +124,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "800",
   },
-  progressBar: {
-    height: 8,
-    backgroundColor: "rgba(0,0,0,0.1)",
-    borderRadius: theme.radius.full,
-    marginTop: 12,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: theme.colors.accent,
-    borderRadius: theme.radius.full,
-  },
-  progressText: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    marginTop: 6,
-  },
+  hint: { color: theme.colors.textSecondary, fontSize: 13, marginTop: 10, lineHeight: 18 },
   primaryButton: {
     marginTop: theme.spacing.lg,
   },

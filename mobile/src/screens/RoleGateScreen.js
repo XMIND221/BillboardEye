@@ -34,6 +34,7 @@ export default function RoleGateScreen({ onSelectRole, onSignOut }) {
           <Text style={styles.heroTitle}>BillboardEye</Text>
         </View>
         <Text style={styles.tagline}>Choisissez votre mode</Text>
+        <Text style={styles.taglineHint}>Chaque mode ouvre un espace dédié. Les listes campagnes / PDF suivent votre compte (et le rôle synchronisé).</Text>
       </View>
 
       <ScrollView
@@ -104,6 +105,14 @@ const styles = StyleSheet.create({
   tagline: {
     fontSize: 15,
     color: "rgba(255,255,255,0.9)",
+  },
+  taglineHint: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.75)",
+    textAlign: "center",
+    marginTop: 10,
+    paddingHorizontal: theme.spacing.md,
+    lineHeight: 16,
   },
   scroll: {
     flex: 1,

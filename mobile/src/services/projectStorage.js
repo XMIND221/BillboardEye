@@ -1,14 +1,25 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const SELECTED_PROJECT_KEY = "@billboardeye:selected-project";
+const LEGACY_SELECTED_KEY = "@billboardeye:selected-project";
 const USER_ROLE_KEY = "@billboardeye:user-role";
 
-export const saveSelectedProject = async (project) => {
-  await AsyncStorage.setItem(SELECTED_PROJECT_KEY, JSON.stringify(project || null));
+const selectedKeyForStorageRole = (storageRole) =>
+  `@billboardeye:selected-project:${storageRole}`;
+
+/** Rôle utilisé pour la persistance de la dernière campagne (PDF / rapports). */
+const normalizeStorageRole = (role) => (role === "reporting" ? "reporting" : "gestionnaire");
+
+export const saveSelectedProject = async (project, role = "gestionnaire") => {
+  const r = normalizeStorageRole(role);
+  await AsyncStorage.setItem(selectedKeyForStorageRole(r), JSON.stringify(project || null));
 };
 
-export const getSelectedProject = async () => {
-  const raw = await AsyncStorage.getItem(SELECTED_PROJECT_KEY);
+export const getSelectedProject = async (role = "gestionnaire") => {
+  const r = normalizeStorageRole(role);
+  let raw = await AsyncStorage.getItem(selectedKeyForStorageRole(r));
+  if (!raw && r === "gestionnaire") {
+    raw = await AsyncStorage.getItem(LEGACY_SELECTED_KEY);
+  }
   if (!raw) {
     return null;
   }
@@ -18,6 +29,15 @@ export const getSelectedProject = async () => {
   } catch (_error) {
     return null;
   }
+};
+
+/** À appeler quand l’utilisateur change de mode (évite campagne A en gestionnaire → PDF campagne B en reporting). */
+export const clearAllSelectedProjects = async () => {
+  await AsyncStorage.multiRemove([
+    LEGACY_SELECTED_KEY,
+    selectedKeyForStorageRole("gestionnaire"),
+    selectedKeyForStorageRole("reporting"),
+  ]);
 };
 
 export const saveUserRole = async (role) => {

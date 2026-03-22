@@ -26,7 +26,8 @@ import ReportingGenerateScreen from "./src/screens/ReportingGenerateScreen";
 import ReportingEditorScreen from "./src/screens/ReportingEditorScreen";
 import ReportingPreviewScreen from "./src/screens/ReportingPreviewScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
-import { clearUserRole, getUserRole, saveUserRole } from "./src/services/projectStorage";
+import { clearAllSelectedProjects, clearUserRole, getUserRole, saveUserRole } from "./src/services/projectStorage";
+import { MANAGER_REPORT_SCREENS, REPORTING_MODE_SCREENS } from "./src/navigation/reportScreens";
 
 const RootStack = createNativeStackNavigator();
 const ManagerDashboardStack = createNativeStackNavigator();
@@ -37,7 +38,6 @@ const ManagerProfilStack = createNativeStackNavigator();
 const ManagerTab = createBottomTabNavigator();
 const MissionsStack = createNativeStackNavigator();
 const PanneauxStack = createNativeStackNavigator();
-const RapportsStack = createNativeStackNavigator();
 const ProfileStack = createNativeStackNavigator();
 const ReportingStack = createNativeStackNavigator();
 const AgentTab = createBottomTabNavigator();
@@ -123,9 +123,19 @@ function ManagerRapportsStackNavigator({ onSwitchRole, onSignOut, userEmail }) {
         headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} />,
       }}
     >
-      <ManagerRapportsStack.Screen name="ReportingGenerate" component={ReportingGenerateScreen} options={{ headerShown: false }} />
-      <ManagerRapportsStack.Screen name="ReportingEditor" component={ReportingEditorScreen} options={{ title: "Édition rapport" }} />
-      <ManagerRapportsStack.Screen name="ReportingPreview" component={ReportingPreviewScreen} options={{ title: "Aperçu PDF" }} />
+      <ManagerRapportsStack.Screen
+        name={MANAGER_REPORT_SCREENS.Generate}
+        component={ReportingGenerateScreen}
+        options={{ headerShown: false }}
+        initialParams={{ reportScreens: MANAGER_REPORT_SCREENS, reportingUiMode: "manager" }}
+      />
+      <ManagerRapportsStack.Screen
+        name={MANAGER_REPORT_SCREENS.Editor}
+        component={ReportingEditorScreen}
+        initialParams={{ reportScreens: MANAGER_REPORT_SCREENS }}
+        options={{ title: "Édition rapport" }}
+      />
+      <ManagerRapportsStack.Screen name={MANAGER_REPORT_SCREENS.Preview} component={ReportingPreviewScreen} options={{ title: "Aperçu PDF" }} />
     </ManagerRapportsStack.Navigator>
   );
 }
@@ -242,16 +252,6 @@ function AgentPanneauxStackNavigator({ onSwitchRole, onSignOut, userEmail }) {
   );
 }
 
-function AgentRapportsStackNavigator({ onSwitchRole, onSignOut, userEmail }) {
-  return (
-    <RapportsStack.Navigator screenOptions={{ ...lightStackScreenOptions, headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}>
-      <RapportsStack.Screen name="ReportingGenerate" component={ReportingGenerateScreen} options={{ headerShown: false }} />
-      <RapportsStack.Screen name="ReportingEditor" component={ReportingEditorScreen} options={{ title: "Édition rapport" }} />
-      <RapportsStack.Screen name="ReportingPreview" component={ReportingPreviewScreen} options={{ title: "Aperçu PDF" }} />
-    </RapportsStack.Navigator>
-  );
-}
-
 function AgentProfileStackNavigator({ onSwitchRole, onSignOut, userEmail }) {
   return (
     <ProfileStack.Navigator screenOptions={{ ...lightStackScreenOptions, headerShown: false }}>
@@ -274,13 +274,6 @@ function AgentTabNavigator({ onSwitchRole, onSignOut, userEmail }) {
     () =>
       function PanneauxTabScreen() {
         return <AgentPanneauxStackNavigator onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} />;
-      },
-    [onSwitchRole, onSignOut, userEmail]
-  );
-  const RapportsTab = useMemo(
-    () =>
-      function RapportsTabScreen() {
-        return <AgentRapportsStackNavigator onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} />;
       },
     [onSwitchRole, onSignOut, userEmail]
   );
@@ -324,14 +317,6 @@ function AgentTabNavigator({ onSwitchRole, onSignOut, userEmail }) {
         }}
       />
       <AgentTab.Screen
-        name="RapportsTab"
-        component={RapportsTab}
-        options={{
-          title: "Rapports",
-          tabBarIcon: ({ color, size }) => <Ionicons name="document-text-outline" size={size} color={color} />,
-        }}
-      />
-      <AgentTab.Screen
         name="ProfilTab"
         component={ProfilTab}
         options={{
@@ -346,9 +331,19 @@ function AgentTabNavigator({ onSwitchRole, onSignOut, userEmail }) {
 function ReportingNavigator({ onSwitchRole, onSignOut, userEmail }) {
   return (
     <ReportingStack.Navigator screenOptions={{ ...lightStackScreenOptions, headerRight: () => <HeaderActions onSwitchRole={onSwitchRole} onSignOut={onSignOut} userEmail={userEmail} /> }}>
-      <ReportingStack.Screen name="ReportingGenerate" component={ReportingGenerateScreen} options={{ headerShown: false }} />
-      <ReportingStack.Screen name="ReportingEditor" component={ReportingEditorScreen} options={{ title: "Édition rapport" }} />
-      <ReportingStack.Screen name="ReportingPreview" component={ReportingPreviewScreen} options={{ title: "Aperçu PDF" }} />
+      <ReportingStack.Screen
+        name={REPORTING_MODE_SCREENS.Generate}
+        component={ReportingGenerateScreen}
+        options={{ headerShown: false }}
+        initialParams={{ reportScreens: REPORTING_MODE_SCREENS, reportingUiMode: "standalone" }}
+      />
+      <ReportingStack.Screen
+        name={REPORTING_MODE_SCREENS.Editor}
+        component={ReportingEditorScreen}
+        initialParams={{ reportScreens: REPORTING_MODE_SCREENS }}
+        options={{ title: "Édition rapport" }}
+      />
+      <ReportingStack.Screen name={REPORTING_MODE_SCREENS.Preview} component={ReportingPreviewScreen} options={{ title: "Aperçu PDF" }} />
     </ReportingStack.Navigator>
   );
 }
@@ -375,6 +370,7 @@ function AppContent() {
   }, []);
 
   const handleSelectRole = async (nextRole) => {
+    await clearAllSelectedProjects();
     await saveUserRole(nextRole);
     if (isAuthConfigured && typeof updateAppRole === "function") {
       try {
@@ -387,8 +383,16 @@ function AppContent() {
   };
 
   const handleSwitchRole = async () => {
+    await clearAllSelectedProjects();
     await clearUserRole();
     setRole(null);
+  };
+
+  const handleSignOut = async () => {
+    await clearAllSelectedProjects();
+    await clearUserRole();
+    setRole(null);
+    if (isAuthConfigured) await signOut();
   };
 
   if (authLoading) {
@@ -420,7 +424,7 @@ function AppContent() {
     return (
       <>
         <StatusBar style="dark" />
-        <RoleGateScreen onSelectRole={handleSelectRole} onSignOut={isAuthConfigured ? signOut : null} />
+        <RoleGateScreen onSelectRole={handleSelectRole} onSignOut={isAuthConfigured ? handleSignOut : null} />
       </>
     );
   }
@@ -431,19 +435,19 @@ function AppContent() {
       <RootStack.Navigator key={role}>
         {role === "gestionnaire" ? (
           <RootStack.Screen name="ModeGestionnaire" options={{ headerShown: false }}>
-            {(props) => <ManagerTabNavigator {...props} onSwitchRole={handleSwitchRole} onSignOut={isAuthConfigured ? signOut : null} userEmail={userEmail} />}
+            {(props) => <ManagerTabNavigator {...props} onSwitchRole={handleSwitchRole} onSignOut={isAuthConfigured ? handleSignOut : null} userEmail={userEmail} />}
           </RootStack.Screen>
         ) : role === "agent" ? (
           <RootStack.Screen name="ModeAgentTerrain" options={{ headerShown: false }}>
-            {(props) => <AgentTabNavigator {...props} onSwitchRole={handleSwitchRole} onSignOut={isAuthConfigured ? signOut : null} userEmail={userEmail} />}
+            {(props) => <AgentTabNavigator {...props} onSwitchRole={handleSwitchRole} onSignOut={isAuthConfigured ? handleSignOut : null} userEmail={userEmail} />}
           </RootStack.Screen>
         ) : role === "reporting" ? (
           <RootStack.Screen name="ModeReporting" options={{ headerShown: false }}>
-            {(props) => <ReportingNavigator {...props} onSwitchRole={handleSwitchRole} onSignOut={isAuthConfigured ? signOut : null} userEmail={userEmail} />}
+            {(props) => <ReportingNavigator {...props} onSwitchRole={handleSwitchRole} onSignOut={isAuthConfigured ? handleSignOut : null} userEmail={userEmail} />}
           </RootStack.Screen>
         ) : (
           <RootStack.Screen name="ModeGestionnaire" options={{ headerShown: false }}>
-            {(props) => <ManagerTabNavigator {...props} onSwitchRole={handleSwitchRole} onSignOut={isAuthConfigured ? signOut : null} userEmail={userEmail} />}
+            {(props) => <ManagerTabNavigator {...props} onSwitchRole={handleSwitchRole} onSignOut={isAuthConfigured ? handleSignOut : null} userEmail={userEmail} />}
           </RootStack.Screen>
         )}
       </RootStack.Navigator>

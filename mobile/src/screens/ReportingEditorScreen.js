@@ -1,9 +1,23 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Switch, ActivityIndicator } from "react-native";
 import { theme } from "../theme";
 import { previewProjetPDF } from "../services/api";
+import { MANAGER_REPORT_SCREENS } from "../navigation/reportScreens";
+
+const buildPanelOverrides = (reportData) =>
+  (reportData?.panneaux || []).map((p) => ({
+    id: p.id,
+    enabled: true,
+    observationsFaceA: p.observationsFaceA || "",
+    observationsFaceB: p.observationsFaceB || "",
+    label: p.localisation?.adresse || "Zone",
+    zoneName: p.localisation?.adresse || "",
+    latitude: p.localisation?.latitude != null ? String(p.localisation.latitude) : "",
+    longitude: p.localisation?.longitude != null ? String(p.localisation.longitude) : "",
+  }));
 
 export default function ReportingEditorScreen({ route, navigation }) {
+  const reportScreens = route.params?.reportScreens || MANAGER_REPORT_SCREENS;
   const campaign = route.params?.campaign || null;
   const reportData = route.params?.reportData || null;
 
@@ -19,18 +33,23 @@ export default function ReportingEditorScreen({ route, navigation }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [visibleCount, setVisibleCount] = useState(20);
-  const [panelOverrides, setPanelOverrides] = useState(
-    (reportData?.panneaux || []).map((p) => ({
-      id: p.id,
-      enabled: true,
-      observationsFaceA: p.observationsFaceA || "",
-      observationsFaceB: p.observationsFaceB || "",
-      label: p.localisation?.adresse || "Zone",
-      zoneName: p.localisation?.adresse || "",
-      latitude: p.localisation?.latitude != null ? String(p.localisation.latitude) : "",
-      longitude: p.localisation?.longitude != null ? String(p.localisation.longitude) : "",
-    })),
-  );
+  const [panelOverrides, setPanelOverrides] = useState(() => buildPanelOverrides(reportData));
+
+  useEffect(() => {
+    if (!campaign?.id || !reportData) return;
+    setTitreRapport(reportData?.projet?.titreRapport || reportData?.projet?.nom || "");
+    setEntreprise(reportData?.projet?.entreprise || "");
+    setDuree(reportData?.projet?.duree || "");
+    setDate(reportData?.projet?.date ? String(reportData.projet.date).slice(0, 10) : "");
+    setZone(reportData?.projet?.zone || "");
+    setAssignedAgent(reportData?.projet?.assignedAgent || "");
+    setInstructions(reportData?.projet?.instructions || "");
+    setLegendeVisuelle(reportData?.projet?.legendeVisuelle || "");
+    setLegendeCarte(reportData?.projet?.legendeCarte || "");
+    setPanelOverrides(buildPanelOverrides(reportData));
+    setVisibleCount(20);
+    setError("");
+  }, [campaign?.id]);
 
   const enabledCount = useMemo(() => panelOverrides.filter((p) => p.enabled).length, [panelOverrides]);
 
@@ -81,7 +100,7 @@ export default function ReportingEditorScreen({ route, navigation }) {
         },
       };
       const result = await previewProjetPDF(campaign.id, payload);
-      navigation.navigate("ReportingPreview", {
+      navigation.navigate(reportScreens.Preview, {
         campaign: { ...campaign, entreprise },
         reportData: {
           ...reportData,
@@ -99,6 +118,7 @@ export default function ReportingEditorScreen({ route, navigation }) {
         },
         pdfUrl: result?.url || "",
         editorPayload: payload,
+        reportScreens,
       });
     } catch (err) {
       setError(err.message || "Impossible de générer l'aperçu.");
@@ -110,6 +130,7 @@ export default function ReportingEditorScreen({ route, navigation }) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Éditer le rapport</Text>
+      <Text style={styles.campaignBadge}>{campaign?.nom || "Campagne"} · {campaign?.entreprise || ""}</Text>
       <Text style={styles.subtitle}>
         Chaque champ correspond au contenu du PDF (couverture, résumé, photo pleine page, zones).
       </Text>
@@ -239,6 +260,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
   content: { padding: theme.spacing.md, paddingBottom: theme.spacing.xxl },
   title: { fontSize: 24, fontWeight: "800", color: theme.colors.text, marginBottom: 4 },
+  campaignBadge: { fontSize: 14, fontWeight: "700", color: theme.colors.accent, marginBottom: 8 },
   subtitle: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: theme.spacing.md },
   card: {
     backgroundColor: theme.colors.surface,

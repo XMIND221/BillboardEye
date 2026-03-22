@@ -33,9 +33,12 @@ const compressImage = async (uri) => {
   return compressed.uri;
 };
 
-const uriToBlob = async (uri) => {
-  const response = await fetch(uri);
-  return await response.blob();
+const appendImageField = (formData, fieldName, fileUri, filename) => {
+  formData.append(fieldName, {
+    uri: fileUri,
+    name: filename,
+    type: "image/jpeg",
+  });
 };
 
 const parseCoord = (val) => {
@@ -226,11 +229,10 @@ export default function UploadPanneauScreen({ navigation }) {
       const photos = {};
       for (const item of uploads) {
         const compressedUri = await compressImage(item.uri);
-        const blob = await uriToBlob(compressedUri);
         const formData = new FormData();
-        formData.append("panneauId", panneau.id);
+        formData.append("panneauId", String(panneau.id));
         formData.append("type", item.type);
-        formData.append("image", blob, `${item.type}-${Date.now()}.jpg`);
+        appendImageField(formData, "image", compressedUri, `${item.type}-${Date.now()}.jpg`);
         const photo = await addPhoto(formData);
         if (photo?.url) {
           photos[item.type] = { url: photo.url };

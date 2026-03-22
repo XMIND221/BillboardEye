@@ -9,18 +9,23 @@ import { getMissionProgress, markZoneCompleted } from "../services/missionStorag
 import { savePanneauOffline, STATUS_SYNCED } from "../services/offlineStorage";
 import Button from "../components/Button";
 
+/** Plus petit = upload plus rapide sur mobile (qualité encore correcte pour le terrain). */
 const compressImage = async (uri) => {
   const compressed = await ImageManipulator.manipulateAsync(
     uri,
-    [{ resize: { width: 1280 } }],
-    { compress: 0.65, format: ImageManipulator.SaveFormat.JPEG },
+    [{ resize: { width: 1024 } }],
+    { compress: 0.58, format: ImageManipulator.SaveFormat.JPEG },
   );
   return compressed.uri;
 };
 
-const uriToBlob = async (uri) => {
-  const response = await fetch(uri);
-  return await response.blob();
+/** React Native : utiliser { uri, name, type } — les Blob dans FormData provoquent souvent « Network request failed ». */
+const appendImageField = (formData, fieldName, fileUri, filename) => {
+  formData.append(fieldName, {
+    uri: fileUri,
+    name: filename,
+    type: "image/jpeg",
+  });
 };
 
 export default function AgentExecutionScreen({ navigation, route }) {
@@ -32,6 +37,7 @@ export default function AgentExecutionScreen({ navigation, route }) {
   const [gps, setGps] = useState({ latitude: null, longitude: null });
   const [capturedAt, setCapturedAt] = useState(new Date().toISOString());
   const [loading, setLoading] = useState(false);
+  const [loadingHint, setLoadingHint] = useState("");
   const [error, setError] = useState("");
 
   const canValidate = useMemo(() => Boolean(faceAUri && faceBUri), [faceAUri, faceBUri]);
@@ -72,24 +78,40 @@ export default function AgentExecutionScreen({ navigation, route }) {
 
     try {
       setLoading(true);
+      setLoadingHint("");
       setError("");
 
       let finalGps = gps;
-      try {
-        const position = await Location.getCurrentPositionAsync({});
-        finalGps = {
-          latitude: Number(position.coords.latitude),
-          longitude: Number(position.coords.longitude),
-        };
-        setGps(finalGps);
-      } catch (_) {
-        if (!gps.latitude || !gps.longitude) {
+      const hasGps = Number.isFinite(gps.latitude) && Number.isFinite(gps.longitude);
+      if (!hasGps) {
+        try {
+          const position = await Location.getCurrentPositionAsync({});
+          finalGps = {
+            latitude: Number(position.coords.latitude),
+            longitude: Number(position.coords.longitude),
+          };
+          setGps(finalGps);
+        } catch (_) {
           setError("GPS indisponible. Réessayez en extérieur.");
           setLoading(false);
           return;
         }
+      } else {
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).then((position) => {
+          setGps({
+            latitude: Number(position.coords.latitude),
+            longitude: Number(position.coords.longitude),
+          });
+        }).catch(() => {});
       }
 
+      setLoadingHint("Préparation des photos…");
+      const [compressedA, compressedB] = await Promise.all([
+        compressImage(faceAUri),
+        compressImage(faceBUri),
+      ]);
+
+      setLoadingHint("Enregistrement du panneau…");
       const panneau = await createPanneau({
         entreprise: mission?.entreprise || "Client",
         projetId: mission?.id,
@@ -101,25 +123,26 @@ export default function AgentExecutionScreen({ navigation, route }) {
         createdAt: capturedAt,
       });
 
-      const uploads = [
-        { type: "faceA", uri: faceAUri },
-        { type: "faceB", uri: faceBUri },
-      ];
+      const ts = Date.now();
+      const buildForm = (type, compressedUri) => {
+        const formData = new FormData();
+        formData.append("panneauId", String(panneau.id));
+        formData.append("type", type);
+        appendImageField(formData, "image", compressedUri, `${type}-${ts}.jpg`);
+        return formData;
+      };
+
+      setLoadingHint("Envoi des photos…");
+      const [photoA, photoB] = await Promise.all([
+        addPhoto(buildForm("faceA", compressedA)),
+        addPhoto(buildForm("faceB", compressedB)),
+      ]);
 
       const photos = {};
-      for (const item of uploads) {
-        const compressedUri = await compressImage(item.uri);
-        const blob = await uriToBlob(compressedUri);
-        const formData = new FormData();
-        formData.append("panneauId", panneau.id);
-        formData.append("type", item.type);
-        formData.append("image", blob, `${item.type}-${Date.now()}.jpg`);
-        const photo = await addPhoto(formData);
-        if (photo?.url) {
-          photos[item.type] = { url: photo.url };
-        }
-      }
+      if (photoA?.url) photos.faceA = { url: photoA.url };
+      if (photoB?.url) photos.faceB = { url: photoB.url };
 
+      setLoadingHint("Finalisation…");
       const localisation = panneau.localisation || {
         adresse: zone,
         latitude: finalGps.latitude,
@@ -162,6 +185,7 @@ export default function AgentExecutionScreen({ navigation, route }) {
       Alert.alert("Erreur", err.message || "Validation impossible.");
     } finally {
       setLoading(false);
+      setLoadingHint("");
     }
   };
 
@@ -191,6 +215,7 @@ export default function AgentExecutionScreen({ navigation, route }) {
         loading={loading}
         style={[styles.validateButton, !canValidate && styles.validateDisabled]}
       />
+      {loading && !!loadingHint && <Text style={styles.loadingHint}>{loadingHint}</Text>}
 
       {!!error && <Text style={styles.error}>{error}</Text>}
     </ScrollView>
@@ -216,5 +241,11 @@ const styles = StyleSheet.create({
   preview: { marginTop: theme.spacing.sm, width: "100%", height: 180, borderRadius: theme.radius.lg },
   validateButton: { marginTop: theme.spacing.xl },
   validateDisabled: { opacity: 0.5 },
+  loadingHint: {
+    marginTop: theme.spacing.sm,
+    textAlign: "center",
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+  },
   error: { color: theme.colors.error, marginTop: theme.spacing.md, fontSize: 14 },
 });
