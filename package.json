@@ -9,6 +9,7 @@
     "dev": "nodemon server.js",
     "configure:prod": "node scripts/configure-production.js",
     "roles:sync": "node scripts/set-app-roles.js",
+    "remap:agent": "node scripts/remap-assigned-agent-email.js",
     "diagnose-pdf": "node scripts/diagnose-pdf.js",
     "mobile:start": "npm --prefix mobile run start",
     "mobile:start:clear": "npm --prefix mobile run start:clear",

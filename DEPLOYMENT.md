@@ -34,6 +34,25 @@ L’app mobile synchronise ce champ lors du choix de mode (écran rôle).
 
 Appliquer les fichiers dans `supabase/migrations/`, notamment `20260322_add_projet_statut.sql` et `20260324_clean_invalid_projet_logo_urls.sql` (supprime en base les logos `file://` / non-HTTPS des anciennes campagnes ; l’API filtre aussi à la lecture).
 
+## Nouveau compte Supabase (remplace un ancien utilisateur)
+
+L’app et l’API **ne stockent pas** d’email en dur : tu te connectes avec le **nouvel** email / mot de passe. À faire selon ton cas :
+
+1. **Rôle métier (gestionnaire / agent / reporting)**  
+   Dans `.env` : `APP_ROLE_MAP={"nouveau@email.com":"gestionnaire"}` (ou `agent` / `reporting`), puis :
+   ```bash
+   npm run roles:sync
+   ```
+   (nécessite `SUPABASE_SERVICE_ROLE_KEY`.)
+
+2. **Campagnes dont le champ « agent assigné » était l’ancien email**  
+   Pour mettre à jour `projets.assigned_agent` en masse :
+   ```bash
+   REMAP_AGENT_FROM=ancien@email.com REMAP_AGENT_TO=nouveau@email.com npm run remap:agent
+   ```
+
+3. **Métadonnées à la main** : dans Supabase **Authentication → Users →** ton utilisateur → **User Metadata** : tu peux ajouter `app_role` (`gestionnaire` | `agent` | `reporting`) si tu ne passes pas par `roles:sync`.
+
 ## Mobile (Expo)
 
 - `EXPO_PUBLIC_API_BASE_URL` : URL HTTPS de l’API.

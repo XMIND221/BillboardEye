@@ -62,6 +62,9 @@ const normalizeProjet = (row) => {
 const createProjet = async (data) => {
   const isoDate = data.date ? new Date(data.date).toISOString() : new Date().toISOString();
 
+  const clientLogoResolved = await resolveLogoInput(data.clientLogoUrl || data.clientLogoDataUri);
+  const entrepriseLogoResolved = await resolveLogoInput(data.entrepriseLogoUrl || data.entrepriseLogoDataUri);
+
   const fullPayloadSnakeCase = {
     id: data.id || randomUUID(),
     nom: data.nom,
@@ -72,8 +75,8 @@ const createProjet = async (data) => {
     instructions: data.instructions || "",
     legende_visuelle: data.legendeVisuelle || "",
     legende_carte: data.legendeCarte || "",
-    client_logo_url: data.clientLogoUrl || "",
-    entreprise_logo_url: data.entrepriseLogoUrl || "",
+    client_logo_url: clientLogoResolved,
+    entreprise_logo_url: entrepriseLogoResolved,
     couleur_principale: data.couleurPrincipale || "#2563EB",
     titre_rapport: data.titreRapport || "",
     assigned_agent: data.assignedAgent || "",

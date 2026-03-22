@@ -66,7 +66,8 @@ const createProjetHandler = async (req, res) => {
       success: true,
       data: projet,
     });
-  } catch (_error) {
+  } catch (err) {
+    console.error("[projets] createProjet:", err?.message || err);
     return res.status(500).json({
       success: false,
       message: "Erreur interne lors de la creation du projet.",

@@ -41,10 +41,24 @@ export function AuthProvider({ children }) {
     return () => subscription?.unsubscribe();
   }, []);
 
+  const mapSignInError = (error) => {
+    const raw = String(error?.message || error || "");
+    if (/Invalid login credentials/i.test(raw)) {
+      return new Error("Email ou mot de passe incorrect.");
+    }
+    if (/Email not confirmed/i.test(raw)) {
+      return new Error("Confirmez votre email (lien reçu à l’inscription) avant de vous connecter.");
+    }
+    if (/Too many requests/i.test(raw)) {
+      return new Error("Trop de tentatives. Réessayez dans quelques minutes.");
+    }
+    return error instanceof Error ? error : new Error(raw || "Échec de la connexion.");
+  };
+
   const signIn = async (email, password) => {
     if (!supabase) throw new Error("Auth non configuré");
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    if (error) throw mapSignInError(error);
     return data;
   };
 
