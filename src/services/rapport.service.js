@@ -2,6 +2,37 @@ const { getPanneauById, getPanneauxByProjetId } = require("./panneaux.service");
 const { getPhotosByPanneauId } = require("./photos.service");
 const { getProjetById } = require("./projets.service");
 
+/**
+ * Un rapport campagne ne doit contenir que des panneaux liés à cette campagne (PDF / JSON).
+ * Filtrage défensif si la base renvoie des lignes incohérentes.
+ */
+const ensureReportPanneauxMatchProjet = (report) => {
+  if (!report?.projet?.id) return report;
+  const projetId = String(report.projet.id);
+  const list = Array.isArray(report.panneaux) ? report.panneaux : [];
+  const next = list.filter((p) => {
+    const pid = p?.projetId != null && p.projetId !== "" ? String(p.projetId) : "";
+    return pid === projetId;
+  });
+  if (next.length !== list.length) {
+    console.warn(
+      `[rapport] Campagne ${projetId}: ${list.length - next.length} panneau(x) exclus (projet_id différent ou absent).`,
+    );
+  }
+  const completed = next.filter((p) => p.isComplete).length;
+  return {
+    ...report,
+    projet: { ...report.projet },
+    panneaux: next,
+    summary: {
+      ...(report.summary || {}),
+      total: next.length,
+      completed,
+      remaining: next.length - completed,
+    },
+  };
+};
+
 const getPanneauReport = async (panneauId) => {
   const panneau = await getPanneauById(panneauId);
 
@@ -44,20 +75,15 @@ const getProjetReport = async (projetId) => {
     });
   }
 
-  const completeCount = panneauxWithPhotos.filter((item) => item.isComplete).length;
-
-  return {
+  return ensureReportPanneauxMatchProjet({
     projet,
     panneaux: panneauxWithPhotos,
-    summary: {
-      total: panneauxWithPhotos.length,
-      completed: completeCount,
-      remaining: panneauxWithPhotos.length - completeCount,
-    },
-  };
+    summary: {},
+  });
 };
 
 module.exports = {
   getPanneauReport,
   getProjetReport,
+  ensureReportPanneauxMatchProjet,
 };

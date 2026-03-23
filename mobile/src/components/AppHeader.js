@@ -4,6 +4,7 @@ import NetInfo from "@react-native-community/netinfo";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { theme } from "../theme";
+import { useDemo } from "../contexts/DemoContext";
 
 /**
  * En-tête type v0 MobileShell : logo BE + BillboardEye, badge sync (NetInfo).
@@ -11,6 +12,7 @@ import { theme } from "../theme";
  */
 export default function AppHeader({ title, onBack, rightExtra }) {
   const insets = useSafeAreaInsets();
+  const { isDemo } = useDemo();
   const [online, setOnline] = useState(true);
 
   useEffect(() => {
@@ -53,6 +55,11 @@ export default function AppHeader({ title, onBack, rightExtra }) {
           )}
         </View>
         <View style={styles.right}>
+          {isDemo ? (
+            <View style={styles.demoPill}>
+              <Text style={styles.demoPillText}>Démo</Text>
+            </View>
+          ) : null}
           {rightExtra}
           <SyncBadge online={online} />
         </View>
@@ -72,7 +79,7 @@ function SyncBadge({ online }) {
 
 const styles = StyleSheet.create({
   wrap: {
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.canvas,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: theme.colors.border,
   },
@@ -144,5 +151,16 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 12,
     fontWeight: "600",
+  },
+  demoPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "rgba(217, 119, 6, 0.18)",
+  },
+  demoPillText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#B45309",
   },
 });

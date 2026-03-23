@@ -4,6 +4,7 @@ const puppeteer = require("puppeteer");
 const fetch = typeof globalThis.fetch === "function" ? globalThis.fetch : require("node-fetch");
 const { fetchImageAsBuffer } = require("./report-media.service");
 const { renderProjetReportHtmlFromTemplate } = require("./report-template.service");
+const { ensureReportPanneauxMatchProjet } = require("./rapport.service");
 
 const PDF_BUCKET = process.env.PDF_BUCKET_NAME || "panneaux-pdf";
 const MAPBOX_TOKEN = process.env.MAPBOX_ACCESS_TOKEN;
@@ -686,9 +687,10 @@ const generatePanneauPDF = async (rapport, options = {}) => {
 };
 
 const generateProjetPDF = async (report, options = {}) => {
+  const safeReport = ensureReportPanneauxMatchProjet(report);
   const suffix = options.suffix || "";
-  const fileName = options.fileName || buildPdfFileName("projet", report.projet.id, suffix);
-  const buffer = await createProjetPDFBuffer(report);
+  const fileName = options.fileName || buildPdfFileName("projet", safeReport.projet.id, suffix);
+  const buffer = await createProjetPDFBuffer(safeReport);
   const url = await uploadPDFToSupabase(buffer, fileName);
   return { buffer, fileName, url };
 };

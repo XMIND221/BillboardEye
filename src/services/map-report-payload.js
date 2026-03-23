@@ -164,6 +164,8 @@ const buildMapReportContext = (report) => {
       showOnMap,
       faceAUrl: faceA?.url || null,
       faceBUrl: faceB?.url || null,
+      faceALabel: "Face A",
+      faceBLabel: "Face B",
       gpsCoordinates: formatGpsShort(loc.latitude, loc.longitude),
       timestamp: formatTime(faceA?.createdAt || faceB?.createdAt),
     };
@@ -191,14 +193,42 @@ const buildMapReportContext = (report) => {
     zones.map((z) => z.faceAUrl).find(Boolean) || zones.map((z) => z.faceBUrl).find(Boolean) || "";
 
   const count = panneaux.length;
+  /** Indique si le serveur peut appeler l’API Mapbox Static (sinon message d’aide dans le PDF) */
+  const mapboxConfigured = Boolean(MAPBOX_TOKEN && String(MAPBOX_TOKEN).trim().length > 0);
+
+  const campaignTitle = projet.titreRapport || projet.nom || "Rapport campagne";
+  const defaultClosingBody = `Document généré pour la campagne « ${campaignTitle} ». Les données terrain (photos, GPS, horodatages) sont celles enregistrées au moment de la mission.`;
+
   return {
     projet,
     primaryCss,
-    documentTitle: projet.titreRapport || projet.nom || "Rapport campagne",
-    campaignName: projet.titreRapport || projet.nom || "Rapport campagne",
+    mapboxConfigured,
+    documentTitle: campaignTitle,
+    campaignName: campaignTitle,
     clientLine: projet.entreprise ? `Client : ${projet.entreprise}` : "Client : —",
+    /** Nom client seul (variantes PDF v0 : ligne « Client » sans préfixe) */
+    clientDisplay: projet.entreprise ? String(projet.entreprise).trim() : "—",
     zoneLine: projet.zone ? String(projet.zone).trim() : "",
     date: formatReportDate(projet.date),
+    footerBrand: projet.footerBrand || projet.footer_brand || "BillboardEye",
+    footerNote:
+      projet.footerNote ||
+      projet.footer_note ||
+      "Rapport généré par BillboardEye",
+    closingHeading:
+      projet.closingHeading || projet.closing_heading || "Merci pour votre confiance",
+    closingBody:
+      (projet.closingBody && String(projet.closingBody).trim()) ||
+      (projet.closing_body && String(projet.closing_body).trim()) ||
+      defaultClosingBody,
+    closingSignatureLabel:
+      projet.closingSignatureLabel ||
+      projet.closing_signature_label ||
+      "Contact BillboardEye",
+    closingSignatureValue:
+      projet.closingSignatureValue ||
+      projet.closing_signature_value ||
+      "contact@billboardeye.fr",
     /** Toujours aligné sur le tableau panneaux du rapport (évite écart avec la carte / summary.total obsolète) */
     zonesCount: count,
     billboardsCount: count,

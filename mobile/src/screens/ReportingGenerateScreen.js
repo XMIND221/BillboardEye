@@ -1,9 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, RefreshControl, Linking } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import { getProjets, getProjetPDFUrl, getProjetReport } from "../services/api";
 import { theme } from "../theme";
 import AppHeader from "../components/AppHeader";
+import SectionHeader from "../components/manager/SectionHeader";
+import ErrorBanner from "../components/manager/ErrorBanner";
+import ProgressBarBlock from "../components/manager/ProgressBarBlock";
+import StatusBadge from "../components/manager/StatusBadge";
 import { getSelectedProject, getUserRole, saveSelectedProject } from "../services/projectStorage";
+import {
+  addReportHistoryEntry,
+  getReportHistory,
+  removeReportHistoryEntry,
+  updateReportHistoryEntry,
+} from "../services/reportHistoryStorage";
+import { useToast } from "../contexts/ToastContext";
 import { MANAGER_REPORT_SCREENS } from "../navigation/reportScreens";
 
 const parseZones = (zoneStr) =>
@@ -13,6 +26,7 @@ const parseZones = (zoneStr) =>
     .filter(Boolean);
 
 export default function ReportingGenerateScreen({ navigation, route }) {
+  const { showToast } = useToast();
   const preselectedCampaignId = route.params?.preselectedCampaignId;
   const reportScreens = route.params?.reportScreens || MANAGER_REPORT_SCREENS;
   const reportingUiMode = route.params?.reportingUiMode || "manager";
@@ -26,6 +40,7 @@ export default function ReportingGenerateScreen({ navigation, route }) {
   const [generatingDirect, setGeneratingDirect] = useState(false);
   const [error, setError] = useState("");
   const [storageRole, setStorageRole] = useState("gestionnaire");
+  const [reportHistory, setReportHistory] = useState([]);
 
   const selectedCampaignIdRef = useRef(selectedCampaignId);
   useEffect(() => {
@@ -112,6 +127,17 @@ export default function ReportingGenerateScreen({ navigation, route }) {
     }
   }, [selectedCampaignId, loadReport]);
 
+  const loadHistory = useCallback(async () => {
+    const rows = await getReportHistory();
+    setReportHistory(rows);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadHistory();
+    }, [loadHistory]),
+  );
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadCampaigns(true);
@@ -143,27 +169,70 @@ export default function ReportingGenerateScreen({ navigation, route }) {
 
   const generateDirect = async () => {
     if (!selectedCampaignId) return;
+    const hid = `r-${Date.now()}-${selectedCampaignId}`;
+    await addReportHistoryEntry({
+      id: hid,
+      projetId: selectedCampaignId,
+      campaignName: selectedCampaign?.nom || "Campagne",
+      pdfUrl: "",
+      createdAt: new Date().toISOString(),
+      status: "pending",
+    });
+    await loadHistory();
     try {
       setGeneratingDirect(true);
       setError("");
       const result = await getProjetPDFUrl(selectedCampaignId);
+      const url = result?.url || "";
+      await updateReportHistoryEntry(hid, { status: "generated", pdfUrl: url });
+      await loadHistory();
+      showToast("Rapport généré — PDF prêt");
       navigation.navigate(reportScreens.Preview, {
         campaign: selectedCampaign,
         reportData,
-        pdfUrl: result?.url || "",
+        pdfUrl: url,
         reportScreens,
       });
     } catch (err) {
+      await updateReportHistoryEntry(hid, { status: "failed", pdfUrl: "" });
+      await loadHistory();
       setError(err.message || "Génération PDF impossible.");
+      showToast("Impossible de générer le PDF", "error");
     } finally {
       setGeneratingDirect(false);
     }
   };
 
+  const openHistoryPdf = async (url) => {
+    if (!url) return;
+    try {
+      await Linking.openURL(url);
+    } catch {
+      showToast("Impossible d’ouvrir le lien", "error");
+    }
+  };
+
+  const removeHistoryLine = async (id) => {
+    await removeReportHistoryEntry(id);
+    await loadHistory();
+    showToast("Rapport retiré de l’historique");
+  };
+
+  const historyStatusVariant = (s) => {
+    if (s === "generated") return "success";
+    if (s === "pending") return "warning";
+    return "error";
+  };
+
+  const historyStatusLabel = (s) => {
+    if (s === "generated") return "Généré";
+    if (s === "pending") return "En attente";
+    return "Échec";
+  };
+
   const zones = parseZones(reportData?.projet?.zone);
   const total = reportData?.summary?.total ?? 0;
   const completed = reportData?.summary?.completed ?? 0;
-  const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   const subtitle =
     reportingUiMode === "standalone"
@@ -191,24 +260,44 @@ export default function ReportingGenerateScreen({ navigation, route }) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
         }
       >
-        <Text style={styles.title}>Rapport PDF</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
+        <SectionHeader title="Rapport PDF" subtitle={subtitle} />
 
-        {!!error && (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={async () => {
-                await loadCampaigns(true);
-                if (selectedCampaignIdRef.current) await loadReport(selectedCampaignIdRef.current);
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.retryText}>Réessayer</Text>
-            </TouchableOpacity>
+        {reportHistory.length > 0 && (
+          <View style={styles.historyBlock}>
+            <Text style={styles.historyTitle}>Historique des rapports</Text>
+            {reportHistory.slice(0, 12).map((row) => (
+              <View key={row.id} style={styles.historyRow}>
+                <View style={styles.historyMain}>
+                  <Text style={styles.historyName} numberOfLines={1}>
+                    {row.campaignName}
+                  </Text>
+                  <Text style={styles.historyDate}>
+                    {row.createdAt ? new Date(row.createdAt).toLocaleString("fr-FR") : ""}
+                  </Text>
+                  <StatusBadge variant={historyStatusVariant(row.status)}>{historyStatusLabel(row.status)}</StatusBadge>
+                </View>
+                <View style={styles.historyActions}>
+                  {row.pdfUrl && row.status === "generated" ? (
+                    <TouchableOpacity onPress={() => openHistoryPdf(row.pdfUrl)} hitSlop={10} style={styles.historyIconBtn}>
+                      <Ionicons name="open-outline" size={22} color={theme.colors.primary} />
+                    </TouchableOpacity>
+                  ) : null}
+                  <TouchableOpacity onPress={() => removeHistoryLine(row.id)} hitSlop={10} style={styles.historyIconBtn}>
+                    <Ionicons name="trash-outline" size={20} color={theme.colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
           </View>
         )}
+
+        <ErrorBanner
+          message={error}
+          onRetry={async () => {
+            await loadCampaigns(true);
+            if (selectedCampaignIdRef.current) await loadReport(selectedCampaignIdRef.current);
+          }}
+        />
 
         {campaigns.length === 0 ? (
           <View style={styles.emptyCard}>
@@ -266,17 +355,11 @@ export default function ReportingGenerateScreen({ navigation, route }) {
                   </Text>
                 </View>
 
-                <View style={styles.progressBlock}>
-                  <View style={styles.progressHeader}>
-                    <Text style={styles.progressLabel}>Panneaux complétés</Text>
-                    <Text style={styles.progressValue}>
-                      {completed} / {total} ({progress}%)
-                    </Text>
-                  </View>
-                  <View style={styles.progressBar}>
-                    <View style={[styles.progressFill, { width: `${progress}%` }]} />
-                  </View>
-                </View>
+                {total > 0 ? (
+                  <ProgressBarBlock label="Panneaux complétés" current={completed} total={total} />
+                ) : (
+                  <Text style={styles.noProgress}>Aucun panneau dans le rapport pour cette campagne.</Text>
+                )}
 
                 {(reportData.panneaux || []).length > 0 && (
                   <View style={styles.zonesPreview}>
@@ -295,6 +378,7 @@ export default function ReportingGenerateScreen({ navigation, route }) {
               </View>
             ) : null}
 
+            <Text style={styles.actionsHint}>Personnalisez d’abord le contenu, ou générez directement le PDF.</Text>
             <View style={styles.actionsRow}>
               <TouchableOpacity
                 style={[styles.secondaryActionButton, (!selectedCampaignId || !reportData) && styles.primaryButtonDisabled]}
@@ -302,7 +386,7 @@ export default function ReportingGenerateScreen({ navigation, route }) {
                 disabled={!selectedCampaignId || !reportData}
                 activeOpacity={0.85}
               >
-                <Text style={styles.secondaryActionText}>Éditer le rapport</Text>
+                <Text style={styles.secondaryActionText}>Personnaliser le rapport</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -313,7 +397,7 @@ export default function ReportingGenerateScreen({ navigation, route }) {
                 disabled={generatingDirect || !selectedCampaignId || !reportData}
                 activeOpacity={0.85}
               >
-                {generatingDirect ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Générer directement</Text>}
+                {generatingDirect ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>PDF final</Text>}
               </TouchableOpacity>
             </View>
           </>
@@ -324,12 +408,51 @@ export default function ReportingGenerateScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  outer: { flex: 1, backgroundColor: theme.colors.background },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.colors.background },
-  container: { flex: 1, backgroundColor: theme.colors.background },
+  outer: { flex: 1, backgroundColor: theme.colors.canvas },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.colors.canvas },
+  container: { flex: 1, backgroundColor: theme.colors.canvas },
   content: { padding: theme.spacing.md, paddingBottom: theme.spacing.xxl },
-  title: { fontSize: 24, fontWeight: "800", color: theme.colors.text, marginBottom: 4 },
-  subtitle: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: theme.spacing.sm },
+  historyBlock: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...theme.shadows.sm,
+  },
+  historyTitle: { fontSize: 14, fontWeight: "800", color: theme.colors.text, marginBottom: theme.spacing.sm },
+  historyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
+  },
+  historyMain: { flex: 1, minWidth: 0 },
+  historyName: { fontSize: 15, fontWeight: "700", color: theme.colors.text },
+  historyDate: { fontSize: 12, color: theme.colors.textMuted, marginTop: 2, marginBottom: 6 },
+  historyActions: { flexDirection: "row", alignItems: "center" },
+  historyIconBtn: { padding: 6, marginLeft: 4 },
+  actionsLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: theme.colors.textMuted,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    marginBottom: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
+  },
+  primaryFullButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.accent,
+    paddingVertical: 14,
+    borderRadius: theme.radius.lg,
+    marginBottom: theme.spacing.sm,
+  },
+  noProgress: { fontSize: 13, color: theme.colors.textMuted, marginTop: theme.spacing.sm },
   label: { fontSize: 14, fontWeight: "600", color: theme.colors.textSecondary, marginBottom: theme.spacing.sm },
   chipsScroll: { marginBottom: theme.spacing.md },
   campaignChip: {
@@ -348,24 +471,6 @@ const styles = StyleSheet.create({
   campaignChipTextSelected: { color: "#fff" },
   campaignChipMeta: { color: theme.colors.textMuted, fontSize: 12, marginTop: 2 },
   campaignChipMetaSelected: { color: "rgba(255,255,255,0.8)" },
-  errorCard: {
-    backgroundColor: "rgba(239, 68, 68, 0.15)",
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.3)",
-  },
-  errorText: { color: theme.colors.error, fontSize: 14, marginBottom: theme.spacing.sm },
-  retryButton: {
-    alignSelf: "flex-start",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.accent,
-  },
-  retryText: { color: theme.colors.accent, fontWeight: "600", fontSize: 14 },
   emptyCard: {
     backgroundColor: theme.colors.pastels.pink,
     borderRadius: theme.radius.lg,
@@ -399,36 +504,33 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
   summaryLabel: { color: theme.colors.textSecondary, fontSize: 14 },
   summaryValue: { color: theme.colors.text, fontSize: 14, fontWeight: "600" },
-  progressBlock: { marginTop: theme.spacing.md, marginBottom: theme.spacing.md },
-  progressHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
-  progressLabel: { color: theme.colors.textSecondary, fontSize: 13 },
-  progressValue: { color: theme.colors.text, fontSize: 13, fontWeight: "700" },
-  progressBar: {
-    height: 8,
-    backgroundColor: "rgba(0,0,0,0.08)",
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  progressFill: { height: "100%", backgroundColor: theme.colors.success, borderRadius: 4 },
   zonesPreview: { marginTop: theme.spacing.sm },
   zonesLabel: { color: theme.colors.textSecondary, fontSize: 12, marginBottom: 6 },
   zoneItem: { color: theme.colors.text, fontSize: 13, marginBottom: 2 },
   zoneMore: { color: theme.colors.textMuted, fontSize: 12, marginTop: 4 },
-  actionsRow: { marginTop: theme.spacing.md, flexDirection: "row", gap: theme.spacing.sm },
+  actionsHint: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    marginBottom: theme.spacing.sm,
+    lineHeight: 18,
+  },
+  actionsRow: { flexDirection: "row", gap: theme.spacing.sm },
   primaryActionButton: {
     flex: 1,
+    flexDirection: "row",
     backgroundColor: theme.colors.accent,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: theme.radius.lg,
     alignItems: "center",
     justifyContent: "center",
   },
   secondaryActionButton: {
     flex: 1,
+    flexDirection: "row",
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: theme.radius.lg,
     alignItems: "center",
     justifyContent: "center",

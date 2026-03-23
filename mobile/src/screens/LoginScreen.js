@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../contexts/AuthContext";
+import { useDemo } from "../contexts/DemoContext";
 import { theme } from "../theme";
 import Card from "../components/Card";
 import Button from "../components/Button";
@@ -19,10 +20,24 @@ import Input from "../components/Input";
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { signIn, resetPassword } = useAuth();
+  const { enterDemo } = useDemo();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const handleEnterDemo = async () => {
+    setDemoLoading(true);
+    setError("");
+    try {
+      await enterDemo();
+    } catch (e) {
+      setError(e?.message || "Impossible d’ouvrir le mode démo.");
+    } finally {
+      setDemoLoading(false);
+    }
+  };
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
@@ -79,6 +94,7 @@ export default function LoginScreen() {
 
             <Text style={styles.title}>Connexion</Text>
             <Text style={styles.subtitle}>Accédez à votre espace</Text>
+            <Text style={styles.demoHint}>Données fictives · aucune écriture en base</Text>
 
             <Input
               style={styles.input}
@@ -111,7 +127,22 @@ export default function LoginScreen() {
               <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
             </TouchableOpacity>
 
-            <Button title="Se connecter" onPress={handleLogin} loading={loading} disabled={loading} style={styles.button} />
+            <Button
+              title="Se connecter"
+              onPress={handleLogin}
+              loading={loading}
+              disabled={loading || demoLoading}
+              style={styles.button}
+            />
+
+            <TouchableOpacity
+              style={styles.demoButton}
+              onPress={handleEnterDemo}
+              disabled={loading || demoLoading}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.demoButtonText}>{demoLoading ? "Ouverture…" : "Découvrir l’application (démo)"}</Text>
+            </TouchableOpacity>
           </Card>
         </View>
       </ScrollView>
@@ -208,5 +239,25 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: theme.spacing.sm,
+  },
+  demoHint: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginBottom: theme.spacing.md,
+    lineHeight: 16,
+  },
+  demoButton: {
+    marginTop: theme.spacing.lg,
+    paddingVertical: 14,
+    alignItems: "center",
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.muted,
+  },
+  demoButtonText: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: theme.colors.primary,
   },
 });

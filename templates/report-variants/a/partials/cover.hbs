@@ -1,0 +1,33 @@
+<section class="pdf-page rv-a-page rv-a-cover">
+  <div class="rv-a-accentbar"></div>
+  <div class="rv-a-cover-inner">
+    <div class="rv-a-cover-top">
+      <span class="rv-a-brand">{{footerBrand}}</span>
+      <span class="rv-a-date">{{date}}</span>
+    </div>
+    <div class="rv-a-cover-hero">
+      <div class="rv-a-rule"></div>
+      <p class="rv-a-eyebrow">Rapport de campagne</p>
+      <h1 class="rv-a-title">{{campaignName}}</h1>
+      <p class="rv-a-sub">{{zoneLine}}</p>
+    </div>
+    <div class="rv-a-cover-bottom">
+      <div>
+        <p class="rv-a-label">Client</p>
+        <p class="rv-a-client">{{clientDisplay}}</p>
+      </div>
+      <div class="rv-a-logos">
+        {{#if coverClientLogoDataUri}}
+        <img class="rv-a-logo-img" src="{{coverClientLogoDataUri}}" alt="Logo client" />
+        {{else}}
+        <div class="rv-a-logo-ph">Logo client</div>
+        {{/if}}
+        {{#if coverEntrepriseLogoDataUri}}
+        <img class="rv-a-logo-img" src="{{coverEntrepriseLogoDataUri}}" alt="Logo entreprise" />
+        {{else}}
+        <div class="rv-a-logo-brand">{{footerBrand}}</div>
+        {{/if}}
+      </div>
+    </div>
+  </div>
+</section>

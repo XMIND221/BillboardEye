@@ -1,4 +1,4 @@
-{{! Résumé + carte (mapImageUrl = URL Mapbox générée côté serveur) }}
+{{! Résumé campagne : stats + consignes (carte retirée du PDF) }}
 <section class="report-page report-page--summary">
   <header class="sum-header">
     <p class="sum-eyebrow">Aperçu</p>
@@ -33,35 +33,4 @@
     <p class="sum-note-body">{{noteResume}}</p>
   </div>
   {{/if}}
-  <figure class="map-figure">
-    <div class="map-aspect">
-      {{#if mapImageUrl}}
-      <img src="{{mapImageUrl}}" alt="Carte de la campagne" />
-      {{else}}
-      <div class="map-placeholder">Carte non disponible (renseigner les GPS des panneaux et MAPBOX_ACCESS_TOKEN sur le serveur)</div>
-      {{/if}}
-    </div>
-    {{#if mapCaption}}
-    <figcaption class="map-caption">{{mapCaption}}</figcaption>
-    {{/if}}
-    {{#if mapLegend}}
-    <div class="map-legend">
-      <p class="map-legend-title">Correspondance des points sur la carte</p>
-      <p class="map-legend-hint">Chaque repère numéroté sur la carte correspond au panneau du même numéro dans la section Détail (01, 02, etc.).</p>
-      <ul class="map-legend-list">
-        {{#each mapLegend}}
-        <li class="map-legend-item">
-          <span class="map-legend-badge">{{numPadded}}</span>
-          <span class="map-legend-name">{{name}}</span>
-          {{#if pinUsesRealGps}}
-          <span class="map-legend-tag map-legend-tag--ok">sur la carte (GPS)</span>
-          {{else}}
-          <span class="map-legend-tag map-legend-tag--warn">position indicative (GPS manquant)</span>
-          {{/if}}
-        </li>
-        {{/each}}
-      </ul>
-    </div>
-    {{/if}}
-  </figure>
 </section>

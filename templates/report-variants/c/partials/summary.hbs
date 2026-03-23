@@ -1,0 +1,42 @@
+<section class="pdf-page rv-c-page rv-c-summary">
+  <div class="rv-c-sum-head">
+    <div class="rv-c-brand-row">
+      <span class="rv-c-dot"></span>
+      <span class="rv-c-brand-w">{{footerBrand}}</span>
+    </div>
+    <span class="rv-c-sum-lbl">Résumé de campagne</span>
+  </div>
+  <div class="rv-c-sum-body">
+    <div class="rv-c-metrics">
+      <div class="rv-c-met">
+        <p class="rv-c-met-num">{{zonesCountPadded}}</p>
+        <p class="rv-c-met-lbl">Zones</p>
+      </div>
+      <div class="rv-c-met rv-c-met-mid">
+        <p class="rv-c-met-num">{{billboardsCountPadded}}</p>
+        <p class="rv-c-met-lbl">Panneaux</p>
+      </div>
+      <div class="rv-c-met">
+        <p class="rv-c-met-num rv-c-met-txt">{{duration}}</p>
+        <p class="rv-c-met-lbl">Durée</p>
+      </div>
+    </div>
+    <div class="rv-c-meta">
+      <div class="rv-c-row"><span class="rv-c-k">Campagne</span><span class="rv-c-v">{{campaignName}}</span></div>
+      <div class="rv-c-row"><span class="rv-c-k">Client</span><span class="rv-c-v">{{clientDisplay}}</span></div>
+      <div class="rv-c-row"><span class="rv-c-k">Zone</span><span class="rv-c-v">{{zoneLine}}</span></div>
+      <div class="rv-c-row"><span class="rv-c-k">Date</span><span class="rv-c-v">{{date}}</span></div>
+    </div>
+    {{#if noteResume}}
+    <div class="rv-c-note">
+      <p class="rv-c-note-t">Note de synthèse</p>
+      <p class="rv-c-note-b">{{noteResume}}</p>
+    </div>
+    {{/if}}
+    <div class="rv-c-foot">
+      <span class="rv-c-foot-b">{{footerBrand}}</span>
+      <span class="rv-c-foot-n">{{footerNote}}</span>
+      <span class="rv-c-foot-d">{{date}}</span>
+    </div>
+  </div>
+</section>

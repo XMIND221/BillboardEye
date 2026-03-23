@@ -1,0 +1,40 @@
+<section class="pdf-page rv-b-page rv-b-summary">
+  <div class="rv-b-sum-band">
+    <span class="rv-b-band-brand">{{footerBrand}}</span>
+    <span class="rv-b-band-sep">—</span>
+    <span class="rv-b-band-title">Résumé de campagne</span>
+  </div>
+  <div class="rv-b-sum-body">
+    <div class="rv-b-kpis">
+      <div class="rv-b-kpi rv-b-kpi-a">
+        <p class="rv-b-kpi-num">{{zonesCountPadded}}</p>
+        <p class="rv-b-kpi-lbl">Zones déployées</p>
+      </div>
+      <div class="rv-b-kpi rv-b-kpi-b">
+        <p class="rv-b-kpi-num">{{billboardsCountPadded}}</p>
+        <p class="rv-b-kpi-lbl">Panneaux actifs</p>
+      </div>
+      <div class="rv-b-kpi rv-b-kpi-c">
+        <p class="rv-b-kpi-num rv-b-kpi-txt">{{duration}}</p>
+        <p class="rv-b-kpi-lbl">Durée campagne</p>
+      </div>
+    </div>
+    <div class="rv-b-table">
+      <div class="rv-b-tr rv-b-tr-alt"><span class="rv-b-tk">Campagne</span><span class="rv-b-tv">{{campaignName}}</span></div>
+      <div class="rv-b-tr"><span class="rv-b-tk">Client</span><span class="rv-b-tv">{{clientDisplay}}</span></div>
+      <div class="rv-b-tr rv-b-tr-alt"><span class="rv-b-tk">Zone</span><span class="rv-b-tv">{{zoneLine}}</span></div>
+      <div class="rv-b-tr"><span class="rv-b-tk">Date</span><span class="rv-b-tv">{{date}}</span></div>
+    </div>
+    {{#if noteResume}}
+    <div class="rv-b-note">
+      <p class="rv-b-note-t">Note de synthèse</p>
+      <p class="rv-b-note-b">{{noteResume}}</p>
+    </div>
+    {{/if}}
+    <div class="rv-b-foot">
+      <span class="rv-b-foot-b">{{footerBrand}}</span>
+      <span class="rv-b-foot-n">{{footerNote}}</span>
+      <span class="rv-b-foot-d">{{date}}</span>
+    </div>
+  </div>
+</section>

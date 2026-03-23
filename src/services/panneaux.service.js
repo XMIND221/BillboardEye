@@ -171,9 +171,75 @@ const getPanneauxByProjetId = async (projetId) => {
   return data.map(normalizePanneau);
 };
 
+const updatePanneau = async (id, data) => {
+  const existing = await getPanneauById(id);
+  if (!existing) return null;
+
+  const latIn = data.localisation?.latitude ?? data.latitude;
+  const lngIn = data.localisation?.longitude ?? data.longitude;
+  const adresseIn = data.localisation?.adresse ?? data.adresse;
+  const nomZoneRaw = data.nomZone ?? data.nom_zone ?? data.localisation?.nomZone;
+  const nom_zone =
+    nomZoneRaw !== undefined
+      ? nomZoneRaw != null && String(nomZoneRaw).trim() !== ""
+        ? String(nomZoneRaw).trim()
+        : null
+      : existing.nomZone
+        ? String(existing.nomZone).trim()
+        : null;
+
+  const lat = latIn !== undefined ? Number(latIn) : Number(existing.localisation?.latitude);
+  const lng = lngIn !== undefined ? Number(lngIn) : Number(existing.localisation?.longitude);
+  const adresse = adresseIn !== undefined ? adresseIn || "" : existing.localisation?.adresse || "";
+
+  const basePatch = {
+    entreprise: data.entreprise != null ? data.entreprise : existing.entreprise,
+    statut: data.statut != null ? data.statut : existing.statut,
+    projet_id: data.projetId !== undefined ? data.projetId || null : existing.projetId || null,
+  };
+
+  const variants = [
+    {
+      ...basePatch,
+      nom_zone,
+      localisation: { latitude: lat, longitude: lng, adresse },
+      nombreFaces: data.nombreFaces != null ? data.nombreFaces : existing.nombreFaces ?? 1,
+    },
+    {
+      ...basePatch,
+      nom_zone,
+      latitude: lat,
+      longitude: lng,
+      adresse,
+      nombre_faces: data.nombreFaces != null ? data.nombreFaces : existing.nombreFaces ?? 1,
+    },
+  ];
+
+  let lastError = null;
+  for (const patch of variants) {
+    const { data: row, error } = await supabase.from("panneaux").update(patch).eq("id", id).select().single();
+    if (!error) {
+      return normalizePanneau(row);
+    }
+    lastError = error;
+  }
+
+  throw formatSupabaseError("updatePanneau", lastError || new Error("Mise à jour impossible."));
+};
+
+const deletePanneau = async (id) => {
+  const { error } = await supabase.from("panneaux").delete().eq("id", id);
+  if (error) {
+    throw formatSupabaseError("deletePanneau", error);
+  }
+  return true;
+};
+
 module.exports = {
   createPanneau,
   getAllPanneaux,
   getPanneauById,
   getPanneauxByProjetId,
+  updatePanneau,
+  deletePanneau,
 };

@@ -1,0 +1,23 @@
+<article class="billboard-card rv-a-card">
+  <div class="rv-a-card-row">
+    <span class="rv-a-card-idx">{{indexPadded}}</span>
+    <div class="rv-a-card-body">
+      <p class="rv-a-card-name">{{name}}</p>
+      <p class="rv-a-card-meta">{{gpsCoordinates}} — {{timestamp}}</p>
+      <div class="rv-a-face-labels">
+        <div class="rv-a-face-lbl"><p>{{faceALabel}}</p></div>
+        <div class="rv-a-face-lbl"><p>{{faceBLabel}}</p></div>
+      </div>
+      <div class="rv-a-face-imgs">
+        <figure class="rv-a-fig">
+          <div class="rv-a-fig-img"><img src="{{faceAImage}}" alt="{{faceALabel}}" /></div>
+          <figcaption>{{faceALabel}}</figcaption>
+        </figure>
+        <figure class="rv-a-fig">
+          <div class="rv-a-fig-img"><img src="{{faceBImage}}" alt="{{faceBLabel}}" /></div>
+          <figcaption>{{faceBLabel}}</figcaption>
+        </figure>
+      </div>
+    </div>
+  </div>
+</article>

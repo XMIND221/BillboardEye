@@ -6,7 +6,12 @@ import Button from "../components/Button";
 
 export default function AgentMissionDetailScreen({ navigation, route }) {
   const mission = route.params?.mission;
-  const zones = useMemo(() => parseZones(mission?.zone), [mission?.zone]);
+  const zones = useMemo(() => {
+    if (mission?.zones && Array.isArray(mission.zones) && mission.zones.length) {
+      return mission.zones;
+    }
+    return parseZones(mission?.zone);
+  }, [mission?.zone, mission?.zones]);
   const [progress, setProgress] = useState({
     completedZones: [],
     completedCount: 0,
@@ -51,10 +56,15 @@ export default function AgentMissionDetailScreen({ navigation, route }) {
             </Text>
           ))
         )}
+        {zones.length > 0 ? (
+          <Text style={styles.progressLine}>
+            Progression : {progress.completedCount} / {progress.totalZones} zones
+          </Text>
+        ) : null}
       </View>
 
       <Button
-        title="Commencer"
+        title="Commencer mission"
         variant="primary"
         onPress={() =>
           navigation.navigate("AgentZoneSelection", {
@@ -84,5 +94,11 @@ const styles = StyleSheet.create({
   section: { color: theme.colors.text, fontWeight: "700", marginBottom: theme.spacing.sm, fontSize: 16 },
   instructions: { color: theme.colors.textSecondary, fontSize: 14, lineHeight: 22 },
   item: { color: theme.colors.textSecondary, marginBottom: 8, fontSize: 15 },
+  progressLine: {
+    marginTop: theme.spacing.sm,
+    fontSize: 15,
+    fontWeight: "800",
+    color: theme.colors.primary,
+  },
   primaryButton: { marginTop: theme.spacing.md },
 });

@@ -152,8 +152,118 @@ const getProjetById = async (id) => {
   return normalizeProjet(data);
 };
 
+const updateProjet = async (id, data) => {
+  const existing = await getProjetById(id);
+  if (!existing) return null;
+
+  const isoDate = data.date != null ? new Date(data.date).toISOString() : existing.date;
+
+  let clientLogoUrl = existing.clientLogoUrl;
+  if (data.clientLogoDataUri != null || (data.clientLogoUrl !== undefined && data.clientLogoUrl !== "")) {
+    clientLogoUrl = await resolveLogoInput(data.clientLogoUrl ?? data.clientLogoDataUri ?? "");
+  } else if (data.clientLogoUrl === "") {
+    clientLogoUrl = "";
+  }
+
+  let entrepriseLogoUrl = existing.entrepriseLogoUrl;
+  if (data.entrepriseLogoDataUri != null || (data.entrepriseLogoUrl !== undefined && data.entrepriseLogoUrl !== "")) {
+    entrepriseLogoUrl = await resolveLogoInput(data.entrepriseLogoUrl ?? data.entrepriseLogoDataUri ?? "");
+  } else if (data.entrepriseLogoUrl === "") {
+    entrepriseLogoUrl = "";
+  }
+
+  const patchSnake = {
+    nom: data.nom != null ? data.nom : existing.nom,
+    entreprise: data.entreprise != null ? data.entreprise : existing.entreprise,
+    zone: data.zone !== undefined ? data.zone || "" : existing.zone || "",
+    date: isoDate,
+    duree: data.duree !== undefined ? data.duree || "" : existing.duree || "",
+    instructions: data.instructions !== undefined ? data.instructions || "" : existing.instructions || "",
+    legende_visuelle: data.legendeVisuelle !== undefined ? data.legendeVisuelle || "" : existing.legendeVisuelle || "",
+    legende_carte: data.legendeCarte !== undefined ? data.legendeCarte || "" : existing.legendeCarte || "",
+    client_logo_url: clientLogoUrl,
+    entreprise_logo_url: entrepriseLogoUrl,
+    couleur_principale: data.couleurPrincipale != null ? data.couleurPrincipale : existing.couleurPrincipale || "#E11D48",
+    titre_rapport: data.titreRapport !== undefined ? data.titreRapport || "" : existing.titreRapport || "",
+    assigned_agent: data.assignedAgent !== undefined ? data.assignedAgent || "" : existing.assignedAgent || "",
+    statut: data.statut != null ? data.statut : existing.statut || "active",
+  };
+
+  const { data: updated, error } = await supabase.from("projets").update(patchSnake).eq("id", id).select().single();
+
+  if (error) {
+    throw formatSupabaseError("updateProjet", error);
+  }
+
+  return normalizeProjet(updated);
+};
+
+const deleteProjet = async (id) => {
+  const { error } = await supabase.from("projets").delete().eq("id", id);
+  if (error) {
+    throw formatSupabaseError("deleteProjet", error);
+  }
+  return true;
+};
+
+const { getPanneauxByProjetId, createPanneau } = require("./panneaux.service");
+
+/**
+ * Duplique une campagne et recrée les panneaux liés (nouveaux IDs, statut pending).
+ */
+const duplicateProjet = async (sourceId) => {
+  const source = await getProjetById(sourceId);
+  if (!source) return null;
+
+  const baseName = String(source.nom || "Campagne").trim();
+  const newProjet = await createProjet({
+    nom: `${baseName} (copie)`,
+    entreprise: source.entreprise,
+    zone: source.zone || "",
+    duree: source.duree || "",
+    instructions: source.instructions || "",
+    legendeVisuelle: source.legendeVisuelle || "",
+    legendeCarte: source.legendeCarte || "",
+    clientLogoUrl: source.clientLogoUrl || undefined,
+    entrepriseLogoUrl: source.entrepriseLogoUrl || undefined,
+    couleurPrincipale: source.couleurPrincipale || "#E11D48",
+    titreRapport: source.titreRapport ? `${String(source.titreRapport).trim()} (copie)` : `${baseName} (copie)`,
+    assignedAgent: source.assignedAgent || "",
+    statut: "active",
+  });
+
+  const panels = await getPanneauxByProjetId(sourceId);
+  for (const pan of panels) {
+    const lat = pan.localisation?.latitude;
+    const lng = pan.localisation?.longitude;
+    if (lat == null || lng == null) continue;
+    const la = Number(lat);
+    const lo = Number(lng);
+    if (!Number.isFinite(la) || !Number.isFinite(lo)) continue;
+    try {
+      await createPanneau({
+        entreprise: pan.entreprise,
+        nomZone: pan.nomZone,
+        latitude: la,
+        longitude: lo,
+        adresse: pan.localisation?.adresse,
+        nombreFaces: pan.nombreFaces ?? 1,
+        statut: "pending",
+        projetId: newProjet.id,
+      });
+    } catch (e) {
+      console.warn("[duplicateProjet] panneau ignoré:", e?.message || e);
+    }
+  }
+
+  return newProjet;
+};
+
 module.exports = {
   createProjet,
   getAllProjets,
   getProjetById,
+  updateProjet,
+  deleteProjet,
+  duplicateProjet,
 };

@@ -3,11 +3,21 @@ import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity } fr
 import { theme } from "../theme";
 import AppHeader from "../components/AppHeader";
 import PanelCard from "../components/PanelCard";
+import AgentOfflineBanner from "../components/AgentOfflineBanner";
 import { getAllOfflineData } from "../services/offlineStorage";
+import { getAgentMissionsCache } from "../services/agentMissionCache";
 import { getRapport, getProjets } from "../services/api";
+import { useNetworkSync } from "../contexts/NetworkSyncContext";
 
 const enrichWithPhotos = async (panneau) => {
-  if (panneau.photos?.faceA?.url || panneau.photos?.faceB?.url) return panneau;
+  if (
+    panneau.photos?.faceA?.url ||
+    panneau.photos?.faceB?.url ||
+    panneau.photos?.faceA?.localUri ||
+    panneau.photos?.faceB?.localUri
+  ) {
+    return panneau;
+  }
   if (!panneau.serverId) return panneau;
   try {
     const rapport = await getRapport(panneau.serverId);
@@ -21,6 +31,7 @@ const enrichWithPhotos = async (panneau) => {
 };
 
 export default function AgentPanneauxScreen({ navigation }) {
+  const { refreshQueueStats, errorCount, runManualSync } = useNetworkSync();
   const [panneaux, setPanneaux] = useState([]);
   const [projetsById, setProjetsById] = useState({});
   const [refreshing, setRefreshing] = useState(false);
@@ -31,6 +42,12 @@ export default function AgentPanneauxScreen({ navigation }) {
     (projets || []).forEach((p) => {
       map[p.id] = p.nom;
     });
+    if (Object.keys(map).length === 0) {
+      const cached = await getAgentMissionsCache();
+      (cached.missions || []).forEach((p) => {
+        if (p?.id) map[p.id] = p.nom;
+      });
+    }
     setProjetsById(map);
     const allowedProjetIds = new Set((projets || []).map((p) => p.id));
     const strictFilter = allowedProjetIds.size > 0;
@@ -56,7 +73,8 @@ export default function AgentPanneauxScreen({ navigation }) {
 
     tracked = await Promise.all(tracked.map(enrichWithPhotos));
     setPanneaux(tracked);
-  }, []);
+    await refreshQueueStats();
+  }, [refreshQueueStats]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", loadPanneaux);
@@ -72,16 +90,26 @@ export default function AgentPanneauxScreen({ navigation }) {
   return (
     <View style={styles.root}>
       <AppHeader />
+      <AgentOfflineBanner />
       <View style={styles.container}>
         <View style={styles.headRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>Mes panneaux</Text>
-            <Text style={styles.subtitle}>Panneaux validés lors des missions terrain.</Text>
+            <Text style={styles.subtitle}>Locaux ou synchronisés · statut sur chaque fiche.</Text>
           </View>
           <TouchableOpacity style={styles.uploadBtn} onPress={() => navigation.navigate("UploadPanneau")} activeOpacity={0.85}>
             <Text style={styles.uploadBtnText}>Upload</Text>
           </TouchableOpacity>
         </View>
+        {errorCount > 0 ? (
+          <TouchableOpacity
+            style={styles.retryRow}
+            onPress={() => runManualSync().then(() => loadPanneaux())}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.retryRowText}>Réessayer l’envoi</Text>
+          </TouchableOpacity>
+        ) : null}
         <FlatList
         data={panneaux}
         keyExtractor={(item) => item.id}
@@ -108,6 +136,16 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
   },
   uploadBtnText: { color: theme.colors.primaryForeground, fontWeight: "700", fontSize: 13 },
+  retryRow: {
+    marginBottom: theme.spacing.sm,
+    paddingVertical: 12,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.primaryMuted,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+  retryRowText: { color: theme.colors.primary, fontWeight: "800", fontSize: 14 },
   list: { paddingBottom: theme.spacing.xxl },
   empty: { color: theme.colors.textMuted, marginTop: theme.spacing.xl, textAlign: "center", fontSize: 15 },
 });

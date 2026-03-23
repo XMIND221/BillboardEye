@@ -1,4 +1,9 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://billboardeye-production.up.railway.app/api";
+import { RAILWAY_API_BASE_URL } from "../constants/railway";
+
+const API_BASE_URL =
+  String(import.meta.env.VITE_API_BASE_URL || "").trim() ||
+  String(import.meta.env.VITE_RAILWAY_API_URL || "").trim() ||
+  RAILWAY_API_BASE_URL;
 
 const parseResponse = async (response) => {
   const body = await response.json();

@@ -1,8 +1,22 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Switch, ActivityIndicator } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  Switch,
+  ActivityIndicator,
+  Linking,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { theme } from "../theme";
 import { previewProjetPDF } from "../services/api";
 import { MANAGER_REPORT_SCREENS } from "../navigation/reportScreens";
+import AccordionCard from "../components/manager/AccordionCard";
+import { useToast } from "../contexts/ToastContext";
 
 const buildPanelOverrides = (reportData) =>
   (reportData?.panneaux || []).map((p) => ({
@@ -16,7 +30,46 @@ const buildPanelOverrides = (reportData) =>
     longitude: p.localisation?.longitude != null ? String(p.localisation.longitude) : "",
   }));
 
+function buildOverridesPayload({
+  titreRapport,
+  entreprise,
+  duree,
+  date,
+  zone,
+  assignedAgent,
+  instructions,
+  legendeVisuelle,
+  legendeCarte,
+  panelOverrides,
+}) {
+  return {
+    overrides: {
+      titreRapport,
+      entreprise,
+      duree,
+      date,
+      zone,
+      assignedAgent,
+      instructions,
+      legendeVisuelle,
+      legendeCarte,
+      panneaux: panelOverrides.map((p, index) => ({
+        id: p.id,
+        enabled: p.enabled,
+        order: index,
+        zoneName: p.zoneName,
+        latitude: p.latitude,
+        longitude: p.longitude,
+        observationsFaceA: p.observationsFaceA,
+        observationsFaceB: p.observationsFaceB,
+      })),
+    },
+  };
+}
+
 export default function ReportingEditorScreen({ route, navigation }) {
+  const insets = useSafeAreaInsets();
+  const { showToast } = useToast();
   const reportScreens = route.params?.reportScreens || MANAGER_REPORT_SCREENS;
   const campaign = route.params?.campaign || null;
   const reportData = route.params?.reportData || null;
@@ -34,6 +87,7 @@ export default function ReportingEditorScreen({ route, navigation }) {
   const [error, setError] = useState("");
   const [visibleCount, setVisibleCount] = useState(20);
   const [panelOverrides, setPanelOverrides] = useState(() => buildPanelOverrides(reportData));
+  const [lastPreviewUrl, setLastPreviewUrl] = useState("");
 
   useEffect(() => {
     if (!campaign?.id || !reportData) return;
@@ -49,6 +103,7 @@ export default function ReportingEditorScreen({ route, navigation }) {
     setPanelOverrides(buildPanelOverrides(reportData));
     setVisibleCount(20);
     setError("");
+    setLastPreviewUrl("");
   }, [campaign?.id]);
 
   const enabledCount = useMemo(() => panelOverrides.filter((p) => p.enabled).length, [panelOverrides]);
@@ -71,247 +126,346 @@ export default function ReportingEditorScreen({ route, navigation }) {
     });
   };
 
-  const onPreview = async () => {
+  const previewPayload = useCallback(() => {
+    return buildOverridesPayload({
+      titreRapport,
+      entreprise,
+      duree,
+      date,
+      zone,
+      assignedAgent,
+      instructions,
+      legendeVisuelle,
+      legendeCarte,
+      panelOverrides,
+    });
+  }, [
+    titreRapport,
+    entreprise,
+    duree,
+    date,
+    zone,
+    assignedAgent,
+    instructions,
+    legendeVisuelle,
+    legendeCarte,
+    panelOverrides,
+  ]);
+
+  const runPreview = async () => {
     if (!campaign?.id) return;
     setSaving(true);
     setError("");
     try {
-      const payload = {
-        overrides: {
-          titreRapport,
-          entreprise,
-          duree,
-          date,
-          zone,
-          assignedAgent,
-          instructions,
-          legendeVisuelle,
-          legendeCarte,
-          panneaux: panelOverrides.map((p, index) => ({
-            id: p.id,
-            enabled: p.enabled,
-            order: index,
-            zoneName: p.zoneName,
-            latitude: p.latitude,
-            longitude: p.longitude,
-            observationsFaceA: p.observationsFaceA,
-            observationsFaceB: p.observationsFaceB,
-          })),
-        },
-      };
+      const payload = previewPayload();
       const result = await previewProjetPDF(campaign.id, payload);
+      const url = result?.url || "";
+      setLastPreviewUrl(url);
+      if (url) {
+        showToast("Aperçu PDF prêt");
+      }
       navigation.navigate(reportScreens.Preview, {
         campaign: { ...campaign, entreprise },
         reportData: {
           ...reportData,
-          projet: { ...(reportData?.projet || {}), titreRapport, entreprise, duree, date, zone, assignedAgent, instructions },
-          panneaux: panelOverrides.filter((p) => p.enabled).map((p) => {
-            const original = (reportData?.panneaux || []).find((x) => x.id === p.id) || {};
-            return {
-              ...original,
-              localisation: { ...(original.localisation || {}), adresse: p.zoneName, latitude: p.latitude ? Number(p.latitude) : original.localisation?.latitude, longitude: p.longitude ? Number(p.longitude) : original.localisation?.longitude },
-              observationsFaceA: p.observationsFaceA,
-              observationsFaceB: p.observationsFaceB,
-            };
-          }),
+          projet: {
+            ...(reportData?.projet || {}),
+            titreRapport,
+            entreprise,
+            duree,
+            date,
+            zone,
+            assignedAgent,
+            instructions,
+            legendeVisuelle,
+            legendeCarte,
+          },
+          panneaux: panelOverrides
+            .filter((p) => p.enabled)
+            .map((p) => {
+              const original = (reportData?.panneaux || []).find((x) => x.id === p.id) || {};
+              return {
+                ...original,
+                localisation: {
+                  ...(original.localisation || {}),
+                  adresse: p.zoneName,
+                  latitude: p.latitude ? Number(p.latitude) : original.localisation?.latitude,
+                  longitude: p.longitude ? Number(p.longitude) : original.localisation?.longitude,
+                },
+                observationsFaceA: p.observationsFaceA,
+                observationsFaceB: p.observationsFaceB,
+              };
+            }),
           summary: { ...(reportData?.summary || {}), total: enabledCount },
         },
-        pdfUrl: result?.url || "",
+        pdfUrl: url,
         editorPayload: payload,
         reportScreens,
       });
     } catch (err) {
-      setError(err.message || "Impossible de générer l'aperçu.");
+      setError(err.message || "Impossible de générer l’aperçu.");
+      showToast("Aperçu impossible", "error");
     } finally {
       setSaving(false);
     }
   };
 
+  const openLastPreview = async () => {
+    if (!lastPreviewUrl) return;
+    try {
+      await Linking.openURL(lastPreviewUrl);
+    } catch {
+      showToast("Ouverture du lien impossible", "error");
+    }
+  };
+
+  const inputProps = {
+    placeholderTextColor: theme.colors.textMuted,
+  };
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Éditer le rapport</Text>
-      <Text style={styles.campaignBadge}>{campaign?.nom || "Campagne"} · {campaign?.entreprise || ""}</Text>
-      <Text style={styles.subtitle}>
-        Chaque champ correspond au contenu du PDF (couverture, résumé, photo pleine page, zones).
-      </Text>
+    <View style={styles.root}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Text style={styles.title}>Personnaliser le rapport</Text>
+        <Text style={styles.campaignBadge}>
+          {campaign?.nom || "Campagne"} · {campaign?.entreprise || ""}
+        </Text>
+        <Text style={styles.subtitle}>Modifiez les blocs ci-dessous puis lancez un aperçu PDF (sans finaliser).</Text>
 
-      {!!error && (
-        <View style={styles.errorCard}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
-
-      <View style={styles.card}>
-        <Text style={styles.blockTitle}>Couverture</Text>
-        <Text style={styles.label}>Titre affiché (grand titre)</Text>
-        <TextInput style={styles.input} value={titreRapport} onChangeText={setTitreRapport} />
-        <Text style={styles.label}>Client (« Client : … » sur le PDF)</Text>
-        <TextInput style={styles.input} value={entreprise} onChangeText={setEntreprise} />
-        <Text style={styles.label}>Zone / périmètre (sous le client, optionnel)</Text>
-        <TextInput style={styles.input} value={zone} onChangeText={setZone} placeholder="Ex. Île-de-France" />
-        <Text style={styles.label}>Date de campagne</Text>
-        <TextInput style={styles.input} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" />
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.blockTitle}>Résumé (page statistiques)</Text>
-        <Text style={styles.label}>Durée affichée sur les cartes « durée de campagne »</Text>
-        <TextInput style={styles.input} value={duree} onChangeText={setDuree} placeholder="Ex. 3 mois" />
-        <Text style={styles.label}>Consignes & note (bloc texte sous les chiffres)</Text>
-        <TextInput
-          style={[styles.input, styles.textarea]}
-          value={instructions}
-          onChangeText={setInstructions}
-          multiline
-          placeholder="Texte libre visible dans la section Résumé"
-        />
-        <Text style={styles.label}>Légende sous la carte illustrative du résumé</Text>
-        <TextInput
-          style={styles.input}
-          value={legendeCarte}
-          onChangeText={setLegendeCarte}
-          placeholder="Par défaut : Distribution géographique des panneaux"
-        />
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.blockTitle}>Grande photo (avant le pied de page)</Text>
-        <Text style={styles.label}>Légende sur la photo pleine largeur</Text>
-        <TextInput
-          style={[styles.input, styles.textarea]}
-          value={legendeVisuelle}
-          onChangeText={setLegendeVisuelle}
-          multiline
-          placeholder="Texte en bas de la grande image"
-        />
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.blockTitle}>Métadonnées</Text>
-        <Text style={styles.label}>Agent assigné (tableau résumé / suivi)</Text>
-        <TextInput style={styles.input} value={assignedAgent} onChangeText={setAssignedAgent} />
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Panneaux inclus ({enabledCount})</Text>
-        {panelOverrides.slice(0, visibleCount).map((p) => (
-          <View key={p.id} style={styles.panelRow}>
-            <View style={styles.panelHeader}>
-              <Text style={styles.panelLabel} numberOfLines={1}>{p.label}</Text>
-              <Switch value={p.enabled} onValueChange={(v) => updatePanel(p.id, { enabled: v })} />
-            </View>
-            <View style={styles.moveRow}>
-              <TouchableOpacity style={styles.moveButton} onPress={() => movePanel(p.id, "up")} activeOpacity={0.85}>
-                <Text style={styles.moveButtonText}>Monter</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.moveButton} onPress={() => movePanel(p.id, "down")} activeOpacity={0.85}>
-                <Text style={styles.moveButtonText}>Descendre</Text>
-              </TouchableOpacity>
-            </View>
-            <TextInput
-              style={[styles.input, styles.smallInput]}
-              value={p.zoneName}
-              onChangeText={(v) => updatePanel(p.id, { zoneName: v, label: v || "Zone" })}
-              placeholder="Nom de zone affiché"
-            />
-            <View style={styles.gpsRow}>
-              <TextInput
-                style={[styles.input, styles.smallInput, styles.gpsInput]}
-                value={p.latitude}
-                onChangeText={(v) => updatePanel(p.id, { latitude: v })}
-                placeholder="Latitude"
-              />
-              <TextInput
-                style={[styles.input, styles.smallInput, styles.gpsInput]}
-                value={p.longitude}
-                onChangeText={(v) => updatePanel(p.id, { longitude: v })}
-                placeholder="Longitude"
-              />
-            </View>
-            <TextInput
-              style={[styles.input, styles.smallInput]}
-              value={p.observationsFaceA}
-              onChangeText={(v) => updatePanel(p.id, { observationsFaceA: v })}
-              placeholder="Observation Face A"
-            />
-            <TextInput
-              style={[styles.input, styles.smallInput]}
-              value={p.observationsFaceB}
-              onChangeText={(v) => updatePanel(p.id, { observationsFaceB: v })}
-              placeholder="Observation Face B"
-            />
+        {!!error && (
+          <View style={styles.errorCard}>
+            <Text style={styles.errorText}>{error}</Text>
           </View>
-        ))}
-        {visibleCount < panelOverrides.length && (
-          <TouchableOpacity style={styles.loadMoreButton} onPress={() => setVisibleCount((v) => v + 20)} activeOpacity={0.85}>
-            <Text style={styles.loadMoreText}>Afficher 20 panneaux de plus</Text>
+        )}
+
+        <AccordionCard title="Couverture" subtitle="Titre, client, zone, date" defaultOpen>
+          <Text style={styles.label}>Titre affiché (grand titre) *</Text>
+          <TextInput
+            style={styles.input}
+            value={titreRapport}
+            onChangeText={setTitreRapport}
+            placeholder="Ex. Rapport d’affichage — Janvier 2025"
+            {...inputProps}
+          />
+          <Text style={styles.label}>Client (« Client : … »)</Text>
+          <TextInput
+            style={styles.input}
+            value={entreprise}
+            onChangeText={setEntreprise}
+            placeholder="Nom affiché sur la couverture"
+            {...inputProps}
+          />
+          <Text style={styles.label}>Zone / périmètre</Text>
+          <TextInput style={styles.input} value={zone} onChangeText={setZone} placeholder="Ex. Île-de-France" {...inputProps} />
+          <Text style={styles.label}>Date de campagne</Text>
+          <TextInput
+            style={styles.input}
+            value={date}
+            onChangeText={setDate}
+            placeholder="AAAA-MM-JJ"
+            autoCapitalize="none"
+            {...inputProps}
+          />
+        </AccordionCard>
+
+        <AccordionCard title="Résumé" subtitle="Durée, consignes, légende carte">
+          <Text style={styles.label}>Durée (cartes « durée de campagne »)</Text>
+          <TextInput style={styles.input} value={duree} onChangeText={setDuree} placeholder="Ex. 3 mois, 15 jours" {...inputProps} />
+          <Text style={styles.label}>Consignes & note (sous les chiffres)</Text>
+          <TextInput
+            style={[styles.input, styles.textarea]}
+            value={instructions}
+            onChangeText={setInstructions}
+            multiline
+            placeholder="Texte libre visible dans la page Résumé"
+            {...inputProps}
+          />
+          <Text style={styles.label}>Légende sous la carte du résumé</Text>
+          <TextInput
+            style={styles.input}
+            value={legendeCarte}
+            onChangeText={setLegendeCarte}
+            placeholder="Par défaut : distribution géographique des panneaux"
+            {...inputProps}
+          />
+        </AccordionCard>
+
+        <AccordionCard title="Grande photo" subtitle="Légende pleine page">
+          <Text style={styles.label}>Légende sous la photo</Text>
+          <TextInput
+            style={[styles.input, styles.textarea]}
+            value={legendeVisuelle}
+            onChangeText={setLegendeVisuelle}
+            multiline
+            placeholder="Texte en bas de la grande image"
+            {...inputProps}
+          />
+        </AccordionCard>
+
+        <AccordionCard title="Métadonnées" subtitle="Suivi & tableau">
+          <Text style={styles.label}>Agent assigné</Text>
+          <TextInput
+            style={styles.input}
+            value={assignedAgent}
+            onChangeText={setAssignedAgent}
+            placeholder="Email ou identifiant"
+            autoCapitalize="none"
+            {...inputProps}
+          />
+        </AccordionCard>
+
+        <AccordionCard title={`Panneaux inclus (${enabledCount})`} subtitle="Ordre, libellés, observations">
+          {panelOverrides.slice(0, visibleCount).map((p) => (
+            <View key={p.id} style={styles.panelRow}>
+              <View style={styles.panelHeader}>
+                <Text style={styles.panelLabel} numberOfLines={1}>
+                  {p.label}
+                </Text>
+                <Switch value={p.enabled} onValueChange={(v) => updatePanel(p.id, { enabled: v })} />
+              </View>
+              <View style={styles.moveRow}>
+                <TouchableOpacity style={styles.moveButton} onPress={() => movePanel(p.id, "up")} activeOpacity={0.85}>
+                  <Text style={styles.moveButtonText}>Monter</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.moveButton} onPress={() => movePanel(p.id, "down")} activeOpacity={0.85}>
+                  <Text style={styles.moveButtonText}>Descendre</Text>
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={[styles.input, styles.smallInput]}
+                value={p.zoneName}
+                onChangeText={(v) => updatePanel(p.id, { zoneName: v, label: v || "Zone" })}
+                placeholder="Nom de zone affiché"
+                {...inputProps}
+              />
+              <View style={styles.gpsRow}>
+                <TextInput
+                  style={[styles.input, styles.smallInput, styles.gpsInput]}
+                  value={p.latitude}
+                  onChangeText={(v) => updatePanel(p.id, { latitude: v })}
+                  placeholder="Latitude"
+                  {...inputProps}
+                />
+                <TextInput
+                  style={[styles.input, styles.smallInput, styles.gpsInput]}
+                  value={p.longitude}
+                  onChangeText={(v) => updatePanel(p.id, { longitude: v })}
+                  placeholder="Longitude"
+                  {...inputProps}
+                />
+              </View>
+              <TextInput
+                style={[styles.input, styles.smallInput]}
+                value={p.observationsFaceA}
+                onChangeText={(v) => updatePanel(p.id, { observationsFaceA: v })}
+                placeholder="Observation Face A"
+                {...inputProps}
+              />
+              <TextInput
+                style={[styles.input, styles.smallInput]}
+                value={p.observationsFaceB}
+                onChangeText={(v) => updatePanel(p.id, { observationsFaceB: v })}
+                placeholder="Observation Face B"
+                {...inputProps}
+              />
+            </View>
+          ))}
+          {visibleCount < panelOverrides.length && (
+            <TouchableOpacity style={styles.loadMoreButton} onPress={() => setVisibleCount((v) => v + 20)} activeOpacity={0.85}>
+              <Text style={styles.loadMoreText}>Afficher 20 panneaux de plus</Text>
+            </TouchableOpacity>
+          )}
+        </AccordionCard>
+
+        <View style={{ height: 120 }} />
+      </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        {!!lastPreviewUrl && (
+          <TouchableOpacity style={styles.previewLinkRow} onPress={openLastPreview} activeOpacity={0.85}>
+            <Ionicons name="document-text-outline" size={20} color={theme.colors.accent} />
+            <Text style={styles.previewLinkText}>Rouvrir le dernier aperçu PDF</Text>
           </TouchableOpacity>
         )}
+        <TouchableOpacity style={[styles.primaryButton, saving && styles.primaryButtonDisabled]} onPress={runPreview} disabled={saving} activeOpacity={0.85}>
+          {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Aperçu PDF</Text>}
+        </TouchableOpacity>
+        <Text style={styles.footerHint}>Le PDF se met à jour à chaque aperçu — vérifiez avant la génération finale.</Text>
       </View>
-
-      <TouchableOpacity style={[styles.primaryButton, saving && styles.primaryButtonDisabled]} onPress={onPreview} disabled={saving} activeOpacity={0.85}>
-        {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Aperçu avant téléchargement</Text>}
-      </TouchableOpacity>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
-  content: { padding: theme.spacing.md, paddingBottom: theme.spacing.xxl },
+  root: { flex: 1, backgroundColor: theme.colors.background },
+  scroll: { flex: 1 },
+  content: { padding: theme.spacing.lg, paddingBottom: theme.spacing.md },
   title: { fontSize: 24, fontWeight: "800", color: theme.colors.text, marginBottom: 4 },
   campaignBadge: { fontSize: 14, fontWeight: "700", color: theme.colors.accent, marginBottom: 8 },
-  subtitle: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: theme.spacing.md },
-  card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-  },
-  label: { fontSize: 13, color: theme.colors.textSecondary, marginBottom: 6, marginTop: 6 },
+  subtitle: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: theme.spacing.md, lineHeight: 20 },
+  label: { fontSize: 13, fontWeight: "700", color: theme.colors.textSecondary, marginBottom: 6, marginTop: 10 },
   input: {
-    backgroundColor: "#fff",
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
     color: theme.colors.text,
   },
-  textarea: { minHeight: 86, textAlignVertical: "top" },
-  blockTitle: { fontSize: 15, fontWeight: "800", color: theme.colors.accent, marginBottom: 10 },
-  sectionTitle: { fontSize: 16, fontWeight: "700", color: theme.colors.text, marginBottom: 6 },
-  hint: { fontSize: 12, color: theme.colors.textSecondary, marginBottom: 10 },
-  panelRow: { borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 10, marginTop: 10 },
+  textarea: { minHeight: 88, textAlignVertical: "top", paddingTop: 12 },
+  panelRow: { borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 12, marginTop: 12 },
   panelHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   moveRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
-  moveButton: { paddingVertical: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: theme.colors.accent, borderRadius: theme.radius.md },
-  moveButtonText: { color: theme.colors.accent, fontSize: 12, fontWeight: "700" },
+  moveButton: { paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: theme.colors.accent, borderRadius: theme.radius.md },
+  moveButtonText: { color: theme.colors.accent, fontSize: 12, fontWeight: "800" },
   gpsRow: { flexDirection: "row", gap: 8 },
   gpsInput: { flex: 1 },
-  panelLabel: { flex: 1, marginRight: 8, color: theme.colors.text, fontWeight: "600" },
+  panelLabel: { flex: 1, marginRight: 8, color: theme.colors.text, fontWeight: "700" },
   smallInput: { marginBottom: 8 },
-  primaryButton: { marginTop: theme.spacing.md, backgroundColor: theme.colors.accent, paddingVertical: 14, borderRadius: theme.radius.lg, alignItems: "center" },
+  primaryButton: {
+    backgroundColor: theme.colors.accent,
+    paddingVertical: 16,
+    borderRadius: theme.radius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 52,
+  },
   primaryButtonDisabled: { opacity: 0.6 },
-  primaryText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  primaryText: { color: "#fff", fontWeight: "800", fontSize: 16 },
   errorCard: {
-    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    backgroundColor: "rgba(239, 68, 68, 0.12)",
     borderRadius: theme.radius.md,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.3)",
+    borderColor: "rgba(239, 68, 68, 0.25)",
   },
-  errorText: { color: theme.colors.error, fontSize: 14 },
+  errorText: { color: theme.colors.error, fontSize: 14, fontWeight: "600" },
   loadMoreButton: {
     marginTop: 10,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: "center",
   },
-  loadMoreText: { color: theme.colors.textSecondary, fontWeight: "700" },
+  loadMoreText: { color: theme.colors.textSecondary, fontWeight: "800", fontSize: 14 },
+  footer: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+  },
+  previewLinkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: theme.spacing.sm,
+    paddingVertical: 8,
+  },
+  previewLinkText: { color: theme.colors.accent, fontWeight: "800", fontSize: 14 },
+  footerHint: { marginTop: 10, fontSize: 11, color: theme.colors.textMuted, textAlign: "center", lineHeight: 15 },
 });

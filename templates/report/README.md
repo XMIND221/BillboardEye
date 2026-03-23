@@ -22,6 +22,15 @@ Les **données** (chiffres, photos, URL carte) sont injectées par `src/services
 
 Migration Supabase : `20260323_panneaux_nom_zone.sql` (colonne `nom_zone`).
 
+## Variantes PDF (v0 intégrées)
+
+Trois modèles **sans carte** : `templates/report-variants/{a,b,c}/` (couverture, résumé, zones + photos, clôture).
+
+Activer avec la variable d’environnement **`REPORT_PDF_VARIANT=a`** (ou `b`, `c`).  
+Sans variable : ce dossier `templates/report/` (comportement historique).
+
+Détails : `templates/report-variants/README.md`.
+
 ## Référence design v0
 
 Le dossier `v0-reference/types.ts` reprend les types du zip v0. Les sources React complètes du zip peuvent être conservées localement hors repo ; ne pas les mélanger avec `admin/` ou `mobile/`.

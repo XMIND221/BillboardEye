@@ -1,5 +1,6 @@
 /**
  * Rendu HTML rapport campagne depuis templates/report/ (Handlebars + partials éditables).
+ * Variantes v0 : REPORT_PDF_VARIANT=a|b|c → templates/report-variants/{a|b|c}/
  */
 const fs = require("fs/promises");
 const path = require("path");
@@ -8,8 +9,11 @@ const Handlebars = require("handlebars");
 const { buildMapReportContext } = require("./map-report-payload");
 const { fetchImageAsBuffer } = require("./report-media.service");
 
-const TEMPLATE_DIR = path.join(__dirname, "..", "..", "templates", "report");
+const ROOT = path.join(__dirname, "..", "..");
+const TEMPLATE_DIR = path.join(ROOT, "templates", "report");
 const PARTIALS_DIR = path.join(TEMPLATE_DIR, "partials");
+const VARIANTS_ROOT = path.join(ROOT, "templates", "report-variants");
+const SKELETON_HTML = path.join(TEMPLATE_DIR, "report.html");
 
 const PLACEHOLDER_IMAGE =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect fill='%23e5e7eb' width='100%25' height='100%25'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-size='14' font-family='sans-serif'%3EPhoto indisponible%3C/text%3E%3C/svg%3E";
@@ -55,44 +59,63 @@ const resolveCoverLogosDataUris = async (projet = {}) => {
   };
 };
 
-let partialsRegistered = false;
+/** @returns {{ variant: string, bodyPath: string, cssPath: string, partialsDir: string }} */
+const resolveTemplateLayout = () => {
+  const v = String(process.env.REPORT_PDF_VARIANT || "default")
+    .trim()
+    .toLowerCase();
+  if (v === "a" || v === "b" || v === "c") {
+    const dir = path.join(VARIANTS_ROOT, v);
+    return {
+      variant: v,
+      bodyPath: path.join(dir, "body.hbs"),
+      cssPath: path.join(dir, "print.css"),
+      partialsDir: path.join(dir, "partials"),
+    };
+  }
+  return {
+    variant: "default",
+    bodyPath: path.join(TEMPLATE_DIR, "body.hbs"),
+    cssPath: path.join(TEMPLATE_DIR, "print.css"),
+    partialsDir: PARTIALS_DIR,
+  };
+};
 
-const registerPartialsOnce = async () => {
-  if (partialsRegistered) return;
+/** Recharge les partials à chaque PDF : évite un template obsolète gardé en mémoire. */
+const registerPartialsFresh = async (partialsDir) => {
   let files;
   try {
-    files = await fs.readdir(PARTIALS_DIR);
+    files = await fs.readdir(partialsDir);
   } catch {
-    partialsRegistered = true;
     return;
   }
   for (const file of files) {
     if (!file.endsWith(".hbs")) continue;
     const name = path.basename(file, ".hbs");
-    const src = await fs.readFile(path.join(PARTIALS_DIR, file), "utf8");
+    const src = await fs.readFile(path.join(partialsDir, file), "utf8");
     Handlebars.registerPartial(name, src);
   }
-  partialsRegistered = true;
 };
 
 /** @param {{ projet?: object, panneaux?: any[], summary?: { total?: number } }} report */
 const renderProjetReportHtmlFromTemplate = async (report) => {
-  const htmlPath = path.join(TEMPLATE_DIR, "report.html");
-  const bodyPath = path.join(TEMPLATE_DIR, "body.hbs");
-  const cssPath = path.join(TEMPLATE_DIR, "print.css");
+  const layout = resolveTemplateLayout();
   let skeleton;
   let printCss;
   let bodySource;
   try {
-    skeleton = await fs.readFile(htmlPath, "utf8");
-    printCss = await fs.readFile(cssPath, "utf8");
-    bodySource = await fs.readFile(bodyPath, "utf8");
+    skeleton = await fs.readFile(SKELETON_HTML, "utf8");
+    printCss = await fs.readFile(layout.cssPath, "utf8");
+    bodySource = await fs.readFile(layout.bodyPath, "utf8");
   } catch (e) {
-    console.warn("[report-template] Fichiers manquants dans templates/report:", e?.message || e);
+    console.warn(
+      `[report-template] Fichiers manquants (variant=${layout.variant}):`,
+      e?.message || e
+    );
     return null;
   }
 
-  await registerPartialsOnce();
+  await registerPartialsFresh(layout.partialsDir);
 
   const base = buildMapReportContext(report);
 
@@ -109,6 +132,8 @@ const renderProjetReportHtmlFromTemplate = async (report) => {
       showOnMap: z.showOnMap,
       gpsCoordinates: z.gpsCoordinates,
       timestamp: z.timestamp,
+      faceALabel: z.faceALabel || "Face A",
+      faceBLabel: z.faceBLabel || "Face B",
       faceAImage: toDataUri(bufA) || PLACEHOLDER_IMAGE,
       faceBImage: toDataUri(bufB) || PLACEHOLDER_IMAGE,
     });
@@ -122,23 +147,39 @@ const renderProjetReportHtmlFromTemplate = async (report) => {
 
   const coverLogos = await resolveCoverLogosDataUris(report.projet || {});
 
+  const mapImageSrc = "";
+  const mapPlaceholderText = "";
+  const mapCaptionForView = "";
+
   const view = {
     primaryCss: base.primaryCss,
     documentTitle: base.documentTitle,
     campaignName: base.campaignName,
     clientLine: base.clientLine,
+    clientDisplay: base.clientDisplay,
     zoneLine: base.zoneLine || "",
     date: base.date,
     coverClientLogoDataUri: coverLogos.coverClientLogoDataUri,
     coverEntrepriseLogoDataUri: coverLogos.coverEntrepriseLogoDataUri,
-    coverHasCampaignLogos: Boolean(coverLogos.coverClientLogoDataUri || coverLogos.coverEntrepriseLogoDataUri),
+    coverHasCampaignLogos: Boolean(
+      coverLogos.coverClientLogoDataUri || coverLogos.coverEntrepriseLogoDataUri
+    ),
     zonesCount: base.zonesCount,
     billboardsCount: base.billboardsCount,
+    zonesCountPadded: String(base.zonesCount).padStart(2, "0"),
+    billboardsCountPadded: String(base.billboardsCount).padStart(2, "0"),
     duration: base.duration,
     noteResume: base.noteResume || "",
-    mapImageUrl: base.mapImageUrl || "",
-    mapCaption: base.mapCaption || "",
-    mapLegend: base.mapLegend || [],
+    footerBrand: base.footerBrand,
+    footerNote: base.footerNote,
+    closingHeading: base.closingHeading,
+    closingBody: base.closingBody,
+    closingSignatureLabel: base.closingSignatureLabel,
+    closingSignatureValue: base.closingSignatureValue,
+    mapImageSrc,
+    mapPlaceholderText,
+    mapCaption: mapCaptionForView,
+    mapLegend: [],
     zones: zonesResolved,
     visualDataUri,
     visualCaption: base.visualCaption || "",
@@ -157,4 +198,5 @@ module.exports = {
   renderProjetReportHtmlFromTemplate,
   resolveCoverLogosDataUris,
   TEMPLATE_DIR,
+  VARIANTS_ROOT,
 };

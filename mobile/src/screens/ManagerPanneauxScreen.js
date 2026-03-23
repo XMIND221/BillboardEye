@@ -1,10 +1,19 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator, TouchableOpacity } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { theme } from "../theme";
 import AppHeader from "../components/AppHeader";
 import PanelCard from "../components/PanelCard";
-import { getPanneaux, getProjets } from "../services/api";
-import { getRapport } from "../services/api";
+import SectionHeader from "../components/manager/SectionHeader";
+import ErrorBanner from "../components/manager/ErrorBanner";
+import ManagerActionSheet from "../components/manager/ManagerActionSheet";
+import ConfirmModal from "../components/manager/ConfirmModal";
+import ManagerSearchBar from "../components/manager/ManagerSearchBar";
+import ManagerChipRow from "../components/manager/ManagerChipRow";
+import ManagerSortMenu from "../components/manager/ManagerSortMenu";
+import { getPanneaux, getProjets, getRapport, deletePanneau } from "../services/api";
+import { useToast } from "../contexts/ToastContext";
+import { collectPanneauZones, getPanneauVisualTone } from "../utils/managerVisualStatus";
 
 const enrichWithPhotos = async (panneau) => {
   if (panneau.photos?.faceA?.url || panneau.photos?.faceB?.url) return panneau;
@@ -20,12 +29,34 @@ const enrichWithPhotos = async (panneau) => {
   }
 };
 
-export default function ManagerPanneauxScreen() {
+const STATUS_FILTER_ITEMS = [
+  { key: "all", label: "Tous statuts" },
+  { key: "actif", label: "Actif" },
+  { key: "attente", label: "En attente" },
+  { key: "termine", label: "Terminé" },
+  { key: "probleme", label: "Problème" },
+];
+
+const SORT_OPTIONS = [
+  { key: "date", label: "Tri : date" },
+  { key: "name", label: "Tri : nom site" },
+  { key: "campaign", label: "Tri : campagne" },
+];
+
+export default function ManagerPanneauxScreen({ navigation }) {
+  const { showToast } = useToast();
   const [panneaux, setPanneaux] = useState([]);
   const [projetsById, setProjetsById] = useState({});
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [sheetPanneau, setSheetPanneau] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [search, setSearch] = useState("");
+  const [statusKey, setStatusKey] = useState("all");
+  const [projetKey, setProjetKey] = useState("all");
+  const [zoneKey, setZoneKey] = useState("all");
+  const [sortKey, setSortKey] = useState("date");
 
   const load = useCallback(async () => {
     try {
@@ -40,6 +71,7 @@ export default function ManagerPanneauxScreen() {
         id: item.id,
         serverId: item.id,
         entreprise: item.entreprise,
+        nomZone: item.nomZone,
         projetId: item.projetId,
         localisation: item.localisation,
         nombreFaces: item.nombreFaces,
@@ -55,12 +87,15 @@ export default function ManagerPanneauxScreen() {
   }, []);
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      await load();
-      setLoading(false);
-    })();
-  }, [load]);
+    const unsub = navigation.addListener("focus", () => {
+      (async () => {
+        setLoading(true);
+        await load();
+        setLoading(false);
+      })();
+    });
+    return unsub;
+  }, [load, navigation]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -68,37 +103,200 @@ export default function ManagerPanneauxScreen() {
     setRefreshing(false);
   };
 
+  const projetChipItems = useMemo(() => {
+    const ids = [...new Set(panneaux.map((p) => p.projetId).filter(Boolean))];
+    return [
+      { key: "all", label: "Toutes campagnes" },
+      ...ids.map((id) => ({ key: id, label: projetsById[id] || id })),
+    ];
+  }, [panneaux, projetsById]);
+
+  const zoneChipItems = useMemo(() => {
+    const zones = collectPanneauZones(panneaux);
+    return [{ key: "all", label: "Toutes zones" }, ...zones.map((z) => ({ key: z, label: z }))];
+  }, [panneaux]);
+
+  const filteredSorted = useMemo(() => {
+    let list = [...panneaux];
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter((p) => {
+        const addr = String(p.localisation?.adresse || "").toLowerCase();
+        return (
+          String(p.entreprise || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(p.nomZone || "")
+            .toLowerCase()
+            .includes(q) ||
+          addr.includes(q)
+        );
+      });
+    }
+    if (statusKey !== "all") {
+      list = list.filter((p) => getPanneauVisualTone(p) === statusKey);
+    }
+    if (projetKey !== "all") {
+      list = list.filter((p) => p.projetId === projetKey);
+    }
+    if (zoneKey !== "all") {
+      list = list.filter((p) => String(p.nomZone || "").trim() === zoneKey);
+    }
+    if (sortKey === "name") {
+      list.sort((a, b) => {
+        const na = (a.nomZone && String(a.nomZone).trim()) || a.entreprise || "";
+        const nb = (b.nomZone && String(b.nomZone).trim()) || b.entreprise || "";
+        return na.localeCompare(nb, "fr");
+      });
+    } else if (sortKey === "campaign") {
+      list.sort((a, b) =>
+        String(projetsById[a.projetId] || "").localeCompare(String(projetsById[b.projetId] || ""), "fr"),
+      );
+    } else {
+      list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    }
+    return list;
+  }, [panneaux, search, statusKey, projetKey, zoneKey, sortKey, projetsById]);
+
+  const confirmDelete = async () => {
+    if (!deleteTarget?.id) return;
+    try {
+      await deletePanneau(deleteTarget.id);
+      showToast("Panneau supprimé");
+      setDeleteTarget(null);
+      await load();
+    } catch (e) {
+      showToast(e.message || "Suppression impossible", "error");
+      setDeleteTarget(null);
+    }
+  };
+
   return (
     <View style={styles.root}>
       <AppHeader />
       <View style={styles.container}>
-        <Text style={styles.title}>Tous les panneaux</Text>
-        <Text style={styles.subtitle}>Vue gestionnaire — panneaux synchronisés depuis le serveur.</Text>
-        {!!error && <Text style={styles.error}>{error}</Text>}
+        <SectionHeader title="Panneaux" subtitle="Inventaire synchronisé — recherche, filtres et carte." />
+
+        <ManagerSearchBar value={search} onChangeText={setSearch} placeholder="Rechercher site, zone ou adresse…" />
+
+        <View style={styles.toolbar}>
+          <ManagerSortMenu label="Trier par" value={sortKey} options={SORT_OPTIONS} onChange={setSortKey} />
+          <TouchableOpacity style={styles.mapFab} onPress={() => navigation.navigate("ManagerPanneauxMap")} activeOpacity={0.88}>
+            <Ionicons name="map-outline" size={20} color={theme.colors.primary} />
+            <Text style={styles.mapFabText}>Carte</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ManagerChipRow label="Statut" items={STATUS_FILTER_ITEMS} selectedKey={statusKey} onSelect={setStatusKey} />
+        <ManagerChipRow label="Campagne" items={projetChipItems} selectedKey={projetKey} onSelect={setProjetKey} />
+        <ManagerChipRow label="Zone" items={zoneChipItems} selectedKey={zoneKey} onSelect={setZoneKey} />
+
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={() => navigation.navigate("ManagerPanneauForm")}
+          activeOpacity={0.88}
+        >
+          <Ionicons name="add-circle-outline" size={22} color={theme.colors.primary} />
+          <Text style={styles.addBtnText}>Ajouter un panneau</Text>
+        </TouchableOpacity>
+
+        <ErrorBanner message={error} onRetry={load} />
         {loading ? (
           <ActivityIndicator size="large" color={theme.colors.primary} style={styles.loader} />
         ) : (
           <FlatList
-            data={panneaux}
+            data={filteredSorted}
             keyExtractor={(item) => String(item.id)}
             contentContainerStyle={styles.list}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
-            renderItem={({ item }) => <PanelCard panneau={item} projetNom={projetsById[item.projetId]} />}
-            ListEmptyComponent={<Text style={styles.empty}>Aucun panneau enregistré.</Text>}
+            ListEmptyComponent={
+              <Text style={styles.empty}>
+                {panneaux.length === 0 ? "Aucun panneau enregistré sur le serveur." : "Aucun résultat pour ces filtres."}
+              </Text>
+            }
+            renderItem={({ item }) => (
+              <PanelCard
+                panneau={item}
+                projetNom={projetsById[item.projetId]}
+                onMenuPress={() => setSheetPanneau(item)}
+              />
+            )}
           />
         )}
       </View>
+
+      <ManagerActionSheet
+        visible={!!sheetPanneau}
+        onClose={() => setSheetPanneau(null)}
+        title={sheetPanneau?.nomZone || sheetPanneau?.entreprise}
+        actions={[
+          {
+            key: "edit",
+            label: "Modifier",
+            icon: "create-outline",
+            onPress: () => navigation.navigate("ManagerPanneauForm", { panneau: sheetPanneau }),
+          },
+          {
+            key: "del",
+            label: "Supprimer",
+            icon: "trash-outline",
+            destructive: true,
+            onPress: () => setDeleteTarget(sheetPanneau),
+          },
+        ]}
+      />
+
+      <ConfirmModal
+        visible={!!deleteTarget}
+        title="Supprimer le panneau ?"
+        message="Êtes-vous sûr ? Cette action est définitive."
+        confirmLabel="Supprimer"
+        destructive
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: theme.colors.background },
-  container: { flex: 1, paddingHorizontal: theme.spacing.lg },
-  title: { fontSize: 22, fontWeight: "800", color: theme.colors.text, marginTop: theme.spacing.sm },
-  subtitle: { marginTop: 4, marginBottom: theme.spacing.md, color: theme.colors.textSecondary, fontSize: 14 },
+  root: { flex: 1, backgroundColor: theme.colors.canvas },
+  container: { flex: 1, paddingHorizontal: theme.spacing.md },
+  toolbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: theme.spacing.xs,
+    gap: theme.spacing.sm,
+  },
+  mapFab: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.surface,
+  },
+  mapFabText: { fontWeight: "800", color: theme.colors.primary, fontSize: 13 },
+  addBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    alignSelf: "flex-start",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: theme.spacing.md,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.surface,
+    ...theme.shadows.sm,
+  },
+  addBtnText: { color: theme.colors.primary, fontWeight: "800", fontSize: 15 },
   list: { paddingBottom: theme.spacing.xxl },
   empty: { color: theme.colors.textMuted, marginTop: theme.spacing.xl, textAlign: "center", fontSize: 15 },
-  error: { color: theme.colors.error, marginBottom: theme.spacing.sm, fontSize: 14 },
   loader: { marginTop: 48 },
 });

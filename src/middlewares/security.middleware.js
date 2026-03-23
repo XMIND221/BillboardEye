@@ -34,11 +34,19 @@ const uploadLimiter = rateLimit({
 });
 
 const pdfLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: Number(process.env.RATE_LIMIT_PDF_MAX) || 120,
+  windowMs: Number(process.env.RATE_LIMIT_PDF_WINDOW_MS) || 60 * 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_PDF_MAX) || 200,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: "Trop de generations PDF. Reessayez plus tard." },
+  message: {
+    success: false,
+    message: "Trop de générations PDF. Réessayez plus tard (ou augmentez RATE_LIMIT_PDF_MAX).",
+  },
+  keyGenerator: (req) => {
+    const uid = req.user?.id || req.user?.sub;
+    if (uid) return `pdf:${uid}`;
+    return req.ip || "pdf:anon";
+  },
 });
 
 module.exports = {

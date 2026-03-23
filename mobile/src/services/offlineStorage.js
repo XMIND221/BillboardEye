@@ -2,6 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const OFFLINE_QUEUE_KEY = "@billboardeye:offline-queue";
 export const STATUS_PENDING = "pending";
+/** Upload / envoi API en cours */
+export const STATUS_SYNCING = "syncing";
 export const STATUS_SYNCED = "synced";
 export const STATUS_ERROR = "error";
 
@@ -32,12 +34,14 @@ const normalizePanneau = (item) => {
 };
 
 const normalizePhoto = (item) => {
+  const fileUri = item.url || item.localUri || "";
   return {
     localId: item.localId || item.id || generateLocalId("photo"),
     panneauLocalId: item.panneauLocalId || null,
     panneauId: item.panneauId || null,
     type: item.type,
-    url: item.url,
+    url: fileUri,
+    localUri: item.localUri || (fileUri && String(fileUri).startsWith("file") ? fileUri : ""),
     statut: item.statut || STATUS_PENDING,
     timestamp: item.timestamp || item.createdAt || new Date().toISOString(),
     retryCount: Number(item.retryCount || 0),
@@ -203,12 +207,14 @@ export const getSyncStats = async () => {
         acc.synced += 1;
       } else if (item.statut === STATUS_ERROR) {
         acc.error += 1;
+      } else if (item.statut === STATUS_SYNCING) {
+        acc.syncing += 1;
       } else {
         acc.pending += 1;
       }
       return acc;
     },
-    { pending: 0, synced: 0, error: 0 },
+    { pending: 0, syncing: 0, synced: 0, error: 0 },
   );
 
   const photos = queue.photos.reduce(
@@ -217,15 +223,30 @@ export const getSyncStats = async () => {
         acc.synced += 1;
       } else if (item.statut === STATUS_ERROR) {
         acc.error += 1;
+      } else if (item.statut === STATUS_SYNCING) {
+        acc.syncing += 1;
       } else {
         acc.pending += 1;
       }
       return acc;
     },
-    { pending: 0, synced: 0, error: 0 },
+    { pending: 0, syncing: 0, synced: 0, error: 0 },
   );
 
   return { panneaux, photos };
+};
+
+/** Nombre d’éléments encore à envoyer (hors synchro OK). */
+export const getPendingSyncCount = async () => {
+  const { panneaux, photos } = await getSyncStats();
+  return (
+    panneaux.pending +
+    panneaux.syncing +
+    panneaux.error +
+    photos.pending +
+    photos.syncing +
+    photos.error
+  );
 };
 
 export const getAllOfflineData = async () => {

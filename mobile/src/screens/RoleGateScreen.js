@@ -21,7 +21,7 @@ const ROLE_CONFIG = {
   },
 };
 
-export default function RoleGateScreen({ onSelectRole, onSignOut }) {
+export default function RoleGateScreen({ onSelectRole, onSignOut, isDemo, onEnterDemo }) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -35,6 +35,11 @@ export default function RoleGateScreen({ onSelectRole, onSignOut }) {
         </View>
         <Text style={styles.tagline}>Choisissez votre mode</Text>
         <Text style={styles.taglineHint}>Chaque mode ouvre un espace dédié. Les listes campagnes / PDF suivent votre compte (et le rôle synchronisé).</Text>
+        {isDemo ? (
+          <View style={styles.demoBanner}>
+            <Text style={styles.demoBannerText}>Mode démo — données fictives, rien n’est enregistré sur le serveur.</Text>
+          </View>
+        ) : null}
       </View>
 
       <ScrollView
@@ -151,5 +156,40 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: 14,
     marginTop: 4,
+  },
+  demoBanner: {
+    marginTop: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 10,
+    borderRadius: theme.radius.md,
+    backgroundColor: "rgba(255,255,255,0.2)",
+  },
+  demoBannerText: {
+    color: theme.colors.primaryForeground,
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 16,
+  },
+  demoEntry: {
+    marginTop: theme.spacing.lg,
+    padding: theme.spacing.lg,
+    borderRadius: theme.radius.lg,
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryMuted,
+  },
+  demoEntryTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: theme.colors.primary,
+    textAlign: "center",
+  },
+  demoEntrySub: {
+    marginTop: 6,
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    textAlign: "center",
   },
 });

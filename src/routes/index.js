@@ -1,6 +1,6 @@
 const express = require("express");
 const { authMiddleware } = require("../middlewares/auth.middleware");
-const { authStrictLimiter, uploadLimiter, pdfLimiter } = require("../middlewares/security.middleware");
+const { authStrictLimiter, uploadLimiter } = require("../middlewares/security.middleware");
 const testRoutes = require("./test.routes");
 const authRoutes = require("./auth.routes");
 const panneauxRoutes = require("./panneaux.routes");
@@ -19,7 +19,8 @@ router.use(authMiddleware);
 router.use("/upload", uploadLimiter, uploadRoutes);
 router.use("/panneaux", panneauxRoutes);
 router.use("/photos", photosRoutes);
-router.use("/rapport", pdfLimiter, rapportRoutes);
+/** Limite PDF uniquement sur les routes lourdes (voir rapport.routes.js), pas sur GET JSON rapport. */
+router.use("/rapport", rapportRoutes);
 router.use("/sync", syncRoutes);
 router.use("/projets", projetsRoutes);
 

@@ -1,0 +1,19 @@
+<section class="pdf-page pdf-page--flow rv-b-page rv-b-zones">
+  <div class="rv-b-sum-band">
+    <span class="rv-b-band-brand">{{footerBrand}}</span>
+    <span class="rv-b-band-sep">—</span>
+    <span class="rv-b-band-title">Détail des zones</span>
+  </div>
+  <div class="rv-b-z-body">
+    <div class="rv-b-z-list">
+      {{#each zones}}
+      {{> zone-card}}
+      {{/each}}
+    </div>
+    <div class="rv-b-foot rv-b-foot-stick">
+      <span class="rv-b-foot-b">{{../footerBrand}}</span>
+      <span class="rv-b-foot-n">{{../footerNote}}</span>
+      <span class="rv-b-foot-d">{{../date}}</span>
+    </div>
+  </div>
+</section>

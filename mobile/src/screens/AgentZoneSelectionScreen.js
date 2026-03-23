@@ -1,13 +1,36 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native";
 import { theme } from "../theme";
+import { getMissionProgress } from "../services/missionStorage";
 
-const ZONE_COLORS = [theme.colors.pastels.blue, theme.colors.pastels.green, theme.colors.pastels.orange, theme.colors.pastels.purple, theme.colors.pastels.pink];
+const ZONE_COLORS = [
+  theme.colors.pastels.blue,
+  theme.colors.pastels.green,
+  theme.colors.pastels.orange,
+  theme.colors.pastels.purple,
+  theme.colors.pastels.pink,
+];
 
 export default function AgentZoneSelectionScreen({ navigation, route }) {
   const mission = route.params?.mission;
   const zones = route.params?.zones || [];
   const suggestedZone = route.params?.suggestedZone || null;
+  const [completedSet, setCompletedSet] = useState(() => new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!mission?.id) return;
+      const p = await getMissionProgress(mission.id, zones);
+      if (!cancelled) setCompletedSet(new Set(p.completedZones || []));
+    };
+    load();
+    const unsub = navigation.addListener("focus", load);
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, [navigation, mission?.id, zones]);
 
   const goExecution = (zone) => {
     navigation.navigate("AgentExecution", { mission, zone, zones });
@@ -15,11 +38,11 @@ export default function AgentZoneSelectionScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Sélection zone</Text>
-      <Text style={styles.subtitle}>Choisissez une zone existante</Text>
+      <Text style={styles.title}>Choisir une zone</Text>
+      <Text style={styles.subtitle}>Puis Face A → Face B → Valider</Text>
       {!!suggestedZone && (
         <View style={styles.suggestedBadge}>
-          <Text style={styles.suggestedText}>Suggestion GPS: {suggestedZone}</Text>
+          <Text style={styles.suggestedText}>À faire ensuite : {suggestedZone}</Text>
         </View>
       )}
 
@@ -27,15 +50,22 @@ export default function AgentZoneSelectionScreen({ navigation, route }) {
         data={zones}
         keyExtractor={(item) => item}
         contentContainerStyle={styles.list}
-        renderItem={({ item, index }) => (
-          <TouchableOpacity
-            style={[styles.card, { backgroundColor: ZONE_COLORS[index % ZONE_COLORS.length] }]}
-            onPress={() => goExecution(item)}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.cardText}>{item}</Text>
-          </TouchableOpacity>
-        )}
+        renderItem={({ item, index }) => {
+          const done = completedSet.has(item);
+          return (
+            <TouchableOpacity
+              style={[styles.card, { backgroundColor: ZONE_COLORS[index % ZONE_COLORS.length] }]}
+              onPress={() => goExecution(item)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.cardText}>
+                {done ? "✓ " : "○ "}
+                {item}
+              </Text>
+              {done ? <Text style={styles.doneHint}>Terminée — vous pouvez rouvrir</Text> : null}
+            </TouchableOpacity>
+          );
+        }}
         ListEmptyComponent={<Text style={styles.empty}>Aucune zone configurée</Text>}
       />
     </View>
@@ -61,6 +91,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
     ...theme.shadows.sm,
   },
-  cardText: { color: theme.colors.text, fontWeight: "700", fontSize: 16 },
+  cardText: { color: theme.colors.text, fontWeight: "800", fontSize: 17 },
+  doneHint: { marginTop: 6, fontSize: 12, fontWeight: "600", color: theme.colors.textSecondary },
   empty: { color: theme.colors.textMuted, marginTop: theme.spacing.lg, fontSize: 15 },
 });

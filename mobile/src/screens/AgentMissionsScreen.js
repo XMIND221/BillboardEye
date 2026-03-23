@@ -10,10 +10,13 @@ import {
   ScrollView,
 } from "react-native";
 import { getProjets } from "../services/api";
-import { parseZones } from "../services/missionStorage";
+import { parseZones, getMissionProgress } from "../services/missionStorage";
+import { saveAgentMissionsCache, getAgentMissionsCache } from "../services/agentMissionCache";
 import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../contexts/ToastContext";
 import { theme } from "../theme";
 import AppHeader from "../components/AppHeader";
+import AgentOfflineBanner from "../components/AgentOfflineBanner";
 
 const CARD_COLORS = [theme.colors.pastels.blue, theme.colors.pastels.green, theme.colors.pastels.orange, theme.colors.pastels.purple];
 
@@ -31,16 +34,60 @@ function missionMatchesFilter(m, filterId) {
   return true;
 }
 
+function filterByAgent(items, userEmail) {
+  if (!userEmail) return items;
+  return items.filter((p) => {
+    const agent = (p.assignedAgent || "").toLowerCase().trim();
+    return !agent || agent === userEmail;
+  });
+}
+
+async function enrichWithProgress(items) {
+  const withZones = items.map((item) => ({
+    ...item,
+    zones: item.zones?.length ? item.zones : parseZones(item.zone),
+  }));
+  const withProgress = await Promise.all(
+    withZones.map(async (m) => {
+      if (!m.id) return { ...m, progress: null };
+      const progress = await getMissionProgress(m.id, m.zones);
+      return { ...m, progress };
+    }),
+  );
+  withProgress.sort((a, b) => {
+    const pa = a.progress;
+    const pb = b.progress;
+    if (!pa || !pb) return 0;
+    const aMid = pa.completedCount > 0 && !pa.isDone;
+    const bMid = pb.completedCount > 0 && !pb.isDone;
+    if (aMid && !bMid) return -1;
+    if (!aMid && bMid) return 1;
+    if (pa.isDone !== pb.isDone) return pa.isDone ? 1 : -1;
+    return (a.nom || "").localeCompare(b.nom || "", "fr");
+  });
+  return withProgress;
+}
+
 export default function AgentMissionsScreen({ navigation }) {
   const { session } = useAuth();
+  const { showToast } = useToast();
   const userEmail = session?.user?.email?.toLowerCase() || "";
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [missions, setMissions] = useState([]);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
+  const [fromCache, setFromCache] = useState(false);
 
   const goUpload = () => navigation.navigate("PanneauxTab", { screen: "UploadPanneau" });
+
+  const applyList = useCallback(async (rawItems, options = {}) => {
+    const { cacheHint } = options;
+    const enriched = await enrichWithProgress(rawItems);
+    setMissions(enriched);
+    if (cacheHint) setFromCache(true);
+    else setFromCache(false);
+  }, []);
 
   const loadMissions = useCallback(async () => {
     try {
@@ -50,21 +97,30 @@ export default function AgentMissionsScreen({ navigation }) {
         ...item,
         zones: parseZones(item.zone),
       }));
-      if (userEmail) {
-        items = items.filter((p) => {
-          const agent = (p.assignedAgent || "").toLowerCase().trim();
-          return !agent || agent === userEmail;
-        });
-      }
-      setMissions(items);
+      items = filterByAgent(items, userEmail);
+      await saveAgentMissionsCache({ missions: items, userEmail });
+      await applyList(items, { cacheHint: false });
     } catch (err) {
-      setError(err.message || "Impossible de charger les missions.");
+      const cached = await getAgentMissionsCache();
+      let items = (cached.missions || []).map((item) => ({
+        ...item,
+        zones: item.zones?.length ? item.zones : parseZones(item.zone),
+      }));
+      items = filterByAgent(items, userEmail);
+      if (items.length) {
+        await applyList(items, { cacheHint: true });
+        setError("");
+        showToast("Hors ligne — missions en cache", "success");
+      } else {
+        setMissions([]);
+        setError(err.message || "Impossible de charger les missions.");
+      }
     }
-  }, [userEmail]);
+  }, [userEmail, applyList, showToast]);
 
   const filteredMissions = useMemo(
     () => missions.filter((m) => missionMatchesFilter(m, filter)),
-    [missions, filter]
+    [missions, filter],
   );
 
   useEffect(() => {
@@ -84,14 +140,24 @@ export default function AgentMissionsScreen({ navigation }) {
     setRefreshing(false);
   };
 
+  const openDetail = (item) => navigation.navigate("AgentMissionDetail", { mission: item });
+  const openStart = (item) =>
+    navigation.navigate("AgentZoneSelection", {
+      mission: item,
+      zones: item.zones || [],
+      suggestedZone: item.progress?.nextZone || null,
+    });
+
   return (
     <View style={styles.root}>
       <AppHeader />
+      <AgentOfflineBanner />
       <View style={styles.container}>
         <View style={styles.headBlock}>
           <Text style={styles.title}>Mes missions</Text>
           <Text style={styles.subtitle}>
             {filteredMissions.length} sur {missions.length} mission{missions.length !== 1 ? "s" : ""}
+            {fromCache ? " · cache" : ""}
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
             {FILTERS.map((f) => {
@@ -125,21 +191,27 @@ export default function AgentMissionsScreen({ navigation }) {
         ) : (
           <FlatList
             data={filteredMissions}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => String(item.id)}
             contentContainerStyle={styles.list}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
-            renderItem={({ item, index }) => (
-              <TouchableOpacity
-                style={[styles.card, { backgroundColor: CARD_COLORS[index % CARD_COLORS.length] }]}
-                onPress={() => navigation.navigate("AgentMissionDetail", { mission: item })}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.cardTitle}>{item.nom}</Text>
-                <Text style={styles.cardMeta}>Client : {item.entreprise}</Text>
-                <Text style={styles.cardMeta}>Statut : {item.statut || "active"}</Text>
-                <Text style={styles.cardMeta}>Zones : {item.zones?.length || 0}</Text>
-              </TouchableOpacity>
-            )}
+            renderItem={({ item, index }) => {
+              const prog = item.progress;
+              const progLabel =
+                prog && prog.totalZones > 0 ? `${prog.completedCount} / ${prog.totalZones} zones` : `${item.zones?.length || 0} zone(s)`;
+              return (
+                <View style={[styles.card, { backgroundColor: CARD_COLORS[index % CARD_COLORS.length] }]}>
+                  <TouchableOpacity onPress={() => openDetail(item)} activeOpacity={0.9}>
+                    <Text style={styles.cardTitle}>{item.nom}</Text>
+                    <Text style={styles.cardMeta}>Client : {item.entreprise}</Text>
+                    <Text style={styles.cardMeta}>Statut : {item.statut || "active"}</Text>
+                    <Text style={styles.cardMeta}>Progression : {progLabel}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.startMissionBtn} onPress={() => openStart(item)} activeOpacity={0.9}>
+                    <Text style={styles.startMissionText}>Commencer mission</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            }}
             ListEmptyComponent={<Text style={styles.empty}>Aucune mission dans ce filtre.</Text>}
           />
         )}
@@ -197,6 +269,16 @@ const styles = StyleSheet.create({
   },
   cardTitle: { color: theme.colors.text, fontSize: 17, fontWeight: "700", marginBottom: 6 },
   cardMeta: { color: theme.colors.textSecondary, fontSize: 14, marginBottom: 2 },
+  startMissionBtn: {
+    marginTop: theme.spacing.md,
+    backgroundColor: "rgba(255,255,255,0.55)",
+    paddingVertical: 14,
+    borderRadius: theme.radius.md,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  startMissionText: { color: theme.colors.text, fontWeight: "800", fontSize: 15 },
   empty: { color: theme.colors.textMuted, marginTop: theme.spacing.xl, textAlign: "center", fontSize: 15 },
   errorBlock: { marginBottom: theme.spacing.md },
   error: { color: theme.colors.error, marginBottom: theme.spacing.sm, fontSize: 14 },

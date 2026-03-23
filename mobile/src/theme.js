@@ -10,6 +10,8 @@ export const theme = {
     surface: "#FFFFFF",
     surfaceElevated: "#FFFFFF",
     background: "#FCFCFC",
+    /** Fond écrans liste / dashboard (SaaS v0) */
+    canvas: "#F8F9FB",
     /** Bandeau login / zones sombres legacy */
     backgroundDark: "#1A1C2E",
     muted: "#F5F5F5",

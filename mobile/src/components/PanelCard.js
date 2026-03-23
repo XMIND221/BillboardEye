@@ -1,58 +1,79 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import { theme } from "../theme";
+import VisualStatusBadge from "./manager/VisualStatusBadge";
+import { getPanneauVisualTone } from "../utils/managerVisualStatus";
 
-const STATUS_UI = {
-  pending: { icon: "🟠", label: "En attente", color: theme.colors.warning },
-  synced: { icon: "🟢", label: "Synchronisé", color: theme.colors.success },
-  error: { icon: "🔴", label: "Erreur", color: theme.colors.error },
-};
-
-export default function PanelCard({ panneau, projetNom }) {
-  const status = STATUS_UI[panneau.statut] || STATUS_UI.pending;
-  const hasPhotos = panneau.photos && (panneau.photos.faceA?.url || panneau.photos.faceB?.url);
+export default function PanelCard({ panneau, projetNom, onMenuPress }) {
+  const visualTone = getPanneauVisualTone(panneau);
+  const uriFaceA = panneau.photos?.faceA?.url || panneau.photos?.faceA?.localUri;
+  const uriFaceB = panneau.photos?.faceB?.url || panneau.photos?.faceB?.localUri;
+  const hasPhotos = Boolean(uriFaceA || uriFaceB);
+  const displayName = (panneau.nomZone && String(panneau.nomZone).trim()) || panneau.entreprise || "Sans nom";
+  const lat = panneau.localisation?.latitude;
+  const lng = panneau.localisation?.longitude;
+  const coordStr =
+    lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))
+      ? `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`
+      : "GPS non renseigné";
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>{panneau.entreprise}</Text>
-      {!!panneau.nomZone && <Text style={styles.zoneLabel}>Zone : {panneau.nomZone}</Text>}
-      <Text style={styles.meta}>
-        {panneau.localisation?.adresse || panneau.nomZone || "Adresse non renseignée"}
+      <View style={styles.headRow}>
+        <View style={styles.headText}>
+          <Text style={styles.nameKicker}>Nom</Text>
+          <Text style={styles.title} numberOfLines={2}>
+            {displayName}
+          </Text>
+          {!!panneau.nomZone && panneau.entreprise && displayName !== panneau.entreprise ? (
+            <Text style={styles.zoneLabel} numberOfLines={1}>
+              Enseigne · {panneau.entreprise}
+            </Text>
+          ) : null}
+        </View>
+        <View style={styles.headRight}>
+          <VisualStatusBadge tone={visualTone} />
+          {onMenuPress ? (
+            <TouchableOpacity
+              style={styles.kebab}
+              onPress={onMenuPress}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Actions panneau"
+            >
+              <Ionicons name="ellipsis-vertical" size={22} color={theme.colors.textMuted} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+
+      <Text style={styles.metaLine} numberOfLines={2}>
+        {panneau.localisation?.adresse || "—"}
       </Text>
-      <Text style={styles.meta}>Campagne : {projetNom || panneau.projetId || "Non liée"}</Text>
-      <Text style={styles.meta}>
-        {panneau.localisation?.latitude}, {panneau.localisation?.longitude}
+      <Text style={styles.campaignLine} numberOfLines={1}>
+        Campagne · {projetNom || panneau.projetId || "Non liée"}
       </Text>
+      <Text style={styles.coords} numberOfLines={1}>
+        {coordStr}
+      </Text>
+
       {hasPhotos && (
         <View style={styles.photosRow}>
-          {panneau.photos?.faceA?.url && (
+          {uriFaceA ? (
             <View style={styles.photoBlock}>
               <Text style={styles.photoLabel}>Face A</Text>
-              <Image
-                source={{ uri: panneau.photos.faceA.url }}
-                style={styles.photo}
-                contentFit="cover"
-                transition={200}
-              />
+              <Image source={{ uri: uriFaceA }} style={styles.photo} contentFit="cover" transition={200} />
             </View>
-          )}
-          {panneau.photos?.faceB?.url && (
+          ) : null}
+          {uriFaceB ? (
             <View style={styles.photoBlock}>
               <Text style={styles.photoLabel}>Face B</Text>
-              <Image
-                source={{ uri: panneau.photos.faceB.url }}
-                style={styles.photo}
-                contentFit="cover"
-                transition={200}
-              />
+              <Image source={{ uri: uriFaceB }} style={styles.photo} contentFit="cover" transition={200} />
             </View>
-          )}
+          ) : null}
         </View>
       )}
-      <Text style={[styles.status, { color: status.color }]}>
-        {status.icon} Statut: {status.label}
-      </Text>
     </View>
   );
 }
@@ -63,12 +84,33 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.lg,
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     ...theme.shadows.sm,
   },
-  title: { fontSize: 17, fontWeight: "700", marginBottom: 4, color: theme.colors.text },
-  zoneLabel: { fontSize: 15, fontWeight: "700", color: theme.colors.accent, marginBottom: 4 },
-  meta: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: 2 },
-  status: { marginTop: theme.spacing.sm, fontWeight: "600", fontSize: 13 },
+  headRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  headText: { flex: 1, minWidth: 0 },
+  headRight: { alignItems: "flex-end", gap: 8 },
+  kebab: { padding: 4, marginTop: 4 },
+  nameKicker: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: theme.colors.textMuted,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    marginBottom: 2,
+  },
+  title: { fontSize: 17, fontWeight: "800", color: theme.colors.text, letterSpacing: -0.2 },
+  zoneLabel: { fontSize: 13, fontWeight: "600", color: theme.colors.primary, marginTop: 4 },
+  metaLine: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: 6, lineHeight: 20 },
+  campaignLine: { fontSize: 13, color: theme.colors.text, fontWeight: "600", marginBottom: 4 },
+  coords: { fontSize: 12, color: theme.colors.textMuted },
   photosRow: { flexDirection: "row", marginTop: theme.spacing.md, gap: theme.spacing.sm },
   photoBlock: { flex: 1 },
   photoLabel: { fontSize: 12, fontWeight: "600", color: theme.colors.textSecondary, marginBottom: 4 },

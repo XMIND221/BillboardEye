@@ -36,6 +36,7 @@ const createPdfRenderSessionHandler = async (req, res) => {
       ...payload,
       __renderExtras: {
         mapImageUrl: ctx.mapImageUrl || "",
+        mapboxConfigured: ctx.mapboxConfigured,
         mapCaption: ctx.mapCaption || "",
         mapLegend: ctx.mapLegend || [],
         coverClientLogoDataUri: coverLogos.coverClientLogoDataUri || "",

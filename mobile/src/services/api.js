@@ -1,10 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE_URL } from "../utils/config";
-
-const networkHint =
-  typeof __DEV__ !== "undefined" && __DEV__
-    ? " Vérifie aussi mobile/.env : enlève EXPO_PUBLIC_API_BASE_URL si tu veux Railway, ou mets la bonne URL."
-    : "";
+import { mapUserFacingApiMessage } from "../utils/apiErrors";
+import { isDemoModeSync } from "./demoMode";
+import { handleDemoApiRequest } from "./demoApi";
 
 const AUTH_TOKEN_KEY = "@billboardeye:auth_token";
 
@@ -32,23 +30,35 @@ const parseResponse = async (response) => {
   }
 
   if (!body || !response.ok || body.success === false) {
-    throw new Error(body.message || "Erreur API.");
+    throw new Error(mapUserFacingApiMessage({ message: body?.message || `Erreur serveur (${response.status}).` }));
   }
 
   return body.data;
 };
 
 const apiRequest = async (path, options = {}) => {
+  if (isDemoModeSync()) {
+    try {
+      const method = options.method || "GET";
+      const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+      let bodyStr = "";
+      if (!isFormData && options.body != null) {
+        bodyStr = typeof options.body === "string" ? options.body : JSON.stringify(options.body);
+      }
+      return await handleDemoApiRequest(path, method, isFormData ? null : bodyStr, isFormData);
+    } catch (error) {
+      const msg = error?.message || "Mode démo indisponible.";
+      throw new Error(mapUserFacingApiMessage(msg));
+    }
+  }
+
   try {
     const headers = await getAuthHeaders(options.headers);
     const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
     return await parseResponse(response);
   } catch (error) {
-    console.error("Erreur API:", error);
-    if (isNetworkError(error)) {
-      throw new Error(`Impossible de contacter le serveur.\n${API_BASE_URL}${networkHint}`);
-    }
-    throw new Error(error.message || "Erreur API inconnue");
+    console.error("Erreur API:", error, API_BASE_URL);
+    throw new Error(mapUserFacingApiMessage(error));
   }
 };
 
@@ -109,6 +119,44 @@ export const createProjet = async (payload) => {
   });
 };
 
+export const getProjetById = async (id) => {
+  return apiRequest(`/projets/${encodeURIComponent(id)}`);
+};
+
+export const updateProjet = async (id, payload) => {
+  return apiRequest(`/projets/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+};
+
+export const deleteProjet = async (id) => {
+  return apiRequest(`/projets/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+};
+
+export const duplicateProjet = async (id) => {
+  return apiRequest(`/projets/${encodeURIComponent(id)}/duplicate`, {
+    method: "POST",
+  });
+};
+
+export const updatePanneau = async (id, payload) => {
+  return apiRequest(`/panneaux/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+};
+
+export const deletePanneau = async (id) => {
+  return apiRequest(`/panneaux/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+};
+
 export const addPhoto = async (formData) => {
   return apiRequest("/photos", {
     method: "POST",
@@ -159,6 +207,9 @@ export const isNetworkError = (error) => {
     message.includes("failed to fetch") ||
     message.includes("networkerror") ||
     message.includes("econnrefused") ||
-    message.includes("aborted")
+    message.includes("aborted") ||
+    message.includes("serveur indisponible") ||
+    message.includes("tunnel") ||
+    message.includes("timeout")
   );
 };

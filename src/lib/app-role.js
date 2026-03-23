@@ -25,6 +25,9 @@ const canSeeAllProjets = (role) => role === "gestionnaire" || role === "reportin
 
 const canCreateProjet = (role) => role === "gestionnaire";
 
+/** Modifier / supprimer une campagne : même périmètre que la création */
+const canManageProjet = (role) => role === "gestionnaire";
+
 const agentCanAccessProjet = (projet, email) => {
   if (!projet || !email) return false;
   const e = String(email).trim().toLowerCase();
@@ -49,6 +52,7 @@ module.exports = {
   getAppRole,
   canSeeAllProjets,
   canCreateProjet,
+  canManageProjet,
   agentCanAccessProjet,
   filterProjetsForUser,
   PROJET_SCOPE_STRICT,

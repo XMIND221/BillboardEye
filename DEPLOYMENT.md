@@ -1,5 +1,16 @@
 # BillboardEye — déploiement & sécurité
 
+## Railway (API Node)
+
+1. **Projet Railway** : connecter le dépôt Git, build via `Dockerfile` (voir `railway.json`). Healthcheck : `GET /api/test`.
+2. **URL publique** : après déploiement, Railway fournit une URL du type `https://xxx.up.railway.app`. L’API est servie sous **`/api`** (ex. `https://xxx.up.railway.app/api/panneaux`).
+3. **Aligner les clients** si l’URL change :
+   - `mobile/src/constants/railway.js` et `admin/src/constants/railway.js` (même chaîne),
+   - `mobile/eas.json` → `EXPO_PUBLIC_RAILWAY_API_URL` sur les profils de build,
+   - ou variables d’environnement : `EXPO_PUBLIC_RAILWAY_API_URL` (mobile / EAS), `VITE_RAILWAY_API_URL` (admin Vite), sans toucher au code.
+4. **Variables à renseigner sur Railway** (onglet *Variables*) : au minimum `NODE_ENV=production`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `AUTH_REQUIRED=true` si tu sécurises l’API, `MAPBOX_ACCESS_TOKEN` pour la carte PDF, `CORS_ORIGINS` ou `ADMIN_WEB_URL` si tu héberges l’admin sur un domaine précis.
+5. **Mobile** : par défaut l’app utilise l’URL Railway du fichier `constants/railway.js` ; `npx expo start -c` suffit. Il faut un `.env` avec **Supabase** (`EXPO_PUBLIC_SUPABASE_*`).
+
 ## Variables d’environnement (API Node)
 
 | Variable | Description |
@@ -11,6 +22,8 @@
 | `ADMIN_WEB_URL`, `MOBILE_WEB_URL` | Utilisées si `CORS_ORIGINS` est vide (prod) |
 | `JSON_BODY_LIMIT` | Taille max du JSON (défaut ~12mb en prod, 50mb en dev) |
 | `RATE_LIMIT_*` | Voir `src/middlewares/security.middleware.js` |
+| `RATE_LIMIT_PDF_MAX` | Max **générations PDF** / fenêtre (défaut 200). S’applique seulement à `pdf-url`, `preview`, `generate`, etc. — pas aux `GET` JSON rapport. |
+| `RATE_LIMIT_PDF_WINDOW_MS` | Fenêtre en ms (défaut 1 h). |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Requis côté serveur |
 | `MAPBOX_ACCESS_TOKEN` | **Carte du rapport PDF** : image statique avec repères numérotés + légende (API calcule l’URL ; sans token = message « carte non disponible »). |
 | `PDF_RENDER_INTERNAL_SECRET` | Secret partagé API ↔ renderer Next (session `/api/internal/pdf-render-session`). |
@@ -55,8 +68,14 @@ L’app et l’API **ne stockent pas** d’email en dur : tu te connectes avec l
 
 ## Mobile (Expo)
 
-- `EXPO_PUBLIC_API_BASE_URL` : URL HTTPS de l’API.
-- `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` : auth.
+- **Railway par défaut** : URL dans `mobile/src/constants/railway.js` (ou `EXPO_PUBLIC_RAILWAY_API_URL` / build EAS).
+- `EXPO_PUBLIC_API_BASE_URL` : optionnel ; si défini, **remplace** Railway (ex. API locale `http://localhost:5000/api`).
+- `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` : auth (obligatoires).
+
+## Admin (Vite)
+
+- Par défaut : même URL Railway que `admin/src/constants/railway.js`.
+- `VITE_API_BASE_URL` ou `VITE_RAILWAY_API_URL` pour surcharger.
 
 ## Configuration automatique
 

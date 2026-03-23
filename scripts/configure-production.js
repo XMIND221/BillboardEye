@@ -81,7 +81,11 @@ function main() {
   const apiEnv = ensureApiEnv();
   const mobileEnv = ensureMobileEnv();
   warnMissing(apiEnv, ["SUPABASE_URL", "SUPABASE_KEY", "CORS_ORIGINS"], "API .env");
-  warnMissing(mobileEnv, ["EXPO_PUBLIC_SUPABASE_URL", "EXPO_PUBLIC_SUPABASE_ANON_KEY", "EXPO_PUBLIC_API_BASE_URL"], "Mobile .env");
+  warnMissing(
+    mobileEnv,
+    ["EXPO_PUBLIC_SUPABASE_URL", "EXPO_PUBLIC_SUPABASE_ANON_KEY"],
+    "Mobile .env (l’API Railway est utilisée par défaut sans EXPO_PUBLIC_API_BASE_URL)",
+  );
   console.log("[configure-production] OK .env + mobile/.env mis à jour.");
 }
 

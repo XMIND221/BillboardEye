@@ -1,0 +1,48 @@
+<section class="pdf-page rv-b-page rv-b-cover">
+  <div class="rv-b-accentbar"></div>
+  <div class="rv-b-cover-inner">
+    <div class="rv-b-cover-head">
+      <div>
+        <span class="rv-b-brand">{{footerBrand}}</span>
+        <p class="rv-b-subline">Rapport de campagne</p>
+      </div>
+      <div class="rv-b-cover-date">
+        <p class="rv-b-dt-lbl">Date</p>
+        <p class="rv-b-dt-val">{{date}}</p>
+      </div>
+    </div>
+    <div class="rv-b-cover-mid">
+      <span class="rv-b-pill">Campagne affichage digital</span>
+      <h1 class="rv-b-title">{{campaignName}}</h1>
+      <p class="rv-b-zone">{{zoneLine}}</p>
+    </div>
+    <div class="rv-b-stat-band">
+      <div class="rv-b-s-cell">
+        <p class="rv-b-s-num">{{zonesCountPadded}}</p>
+        <p class="rv-b-s-lbl">Zones</p>
+      </div>
+      <div class="rv-b-s-cell rv-b-s-mid">
+        <p class="rv-b-s-num">{{billboardsCountPadded}}</p>
+        <p class="rv-b-s-lbl">Panneaux</p>
+      </div>
+      <div class="rv-b-s-cell">
+        <p class="rv-b-s-num rv-b-s-txt">{{duration}}</p>
+        <p class="rv-b-s-lbl">Durée</p>
+      </div>
+    </div>
+    <div class="rv-b-cover-foot">
+      <div>
+        <p class="rv-b-dt-lbl">Client</p>
+        <p class="rv-b-client">{{clientDisplay}}</p>
+      </div>
+      <div class="rv-b-logos">
+        {{#if coverClientLogoDataUri}}
+        <img class="rv-b-logo-img" src="{{coverClientLogoDataUri}}" alt="Logo client" />
+        {{else}}
+        <div class="rv-b-logo-ph">Logo client</div>
+        {{/if}}
+        <div class="rv-b-logo-brand">{{footerBrand}}</div>
+      </div>
+    </div>
+  </div>
+</section>

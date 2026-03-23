@@ -1,0 +1,17 @@
+<section class="pdf-page pdf-page--flow rv-a-page rv-a-zones">
+  <div class="rv-a-accentbar"></div>
+  <div class="rv-a-zones-inner">
+    <p class="rv-a-eyebrow-sm">Détail des zones</p>
+    <div class="rv-a-hr"></div>
+    <div class="rv-a-zone-list">
+      {{#each zones}}
+      {{> zone-card}}
+      {{/each}}
+    </div>
+    <div class="rv-a-foot rv-a-foot-stick">
+      <span class="rv-a-foot-brand">{{../footerBrand}}</span>
+      <span class="rv-a-foot-note">{{../footerNote}}</span>
+      <span class="rv-a-foot-date">{{../date}}</span>
+    </div>
+  </div>
+</section>

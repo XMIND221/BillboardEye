@@ -1,6 +1,13 @@
-const { createProjet, getAllProjets, getProjetById } = require("../services/projets.service");
+const {
+  createProjet,
+  getAllProjets,
+  getProjetById,
+  updateProjet,
+  deleteProjet,
+  duplicateProjet,
+} = require("../services/projets.service");
 const { AUTH_REQUIRED } = require("../middlewares/auth.middleware");
-const { getAppRole, canCreateProjet, filterProjetsForUser } = require("../lib/app-role");
+const { getAppRole, canCreateProjet, canManageProjet, filterProjetsForUser } = require("../lib/app-role");
 const { assertProjetAccess } = require("../lib/access-control");
 
 const createProjetHandler = async (req, res) => {
@@ -15,6 +22,7 @@ const createProjetHandler = async (req, res) => {
     nom,
     entreprise,
     zone,
+    date,
     duree,
     instructions,
     legendeVisuelle,
@@ -48,6 +56,7 @@ const createProjetHandler = async (req, res) => {
       nom,
       entreprise,
       zone,
+      date,
       duree,
       instructions,
       legendeVisuelle,
@@ -124,8 +133,161 @@ const getProjetByIdHandler = async (req, res) => {
   });
 };
 
+const updateProjetHandler = async (req, res) => {
+  if (AUTH_REQUIRED && req.user && !canManageProjet(getAppRole(req.user))) {
+    return res.status(403).json({
+      success: false,
+      message: "Permission refusee : seuls les gestionnaires peuvent modifier une campagne.",
+    });
+  }
+
+  const allowed = await assertProjetAccess(req, req.params.id);
+  if (!allowed) {
+    return res.status(404).json({
+      success: false,
+      message: "Projet introuvable.",
+    });
+  }
+
+  const {
+    nom,
+    entreprise,
+    zone,
+    date,
+    duree,
+    instructions,
+    legendeVisuelle,
+    legendeCarte,
+    clientLogoUrl,
+    clientLogoDataUri,
+    entrepriseLogoUrl,
+    entrepriseLogoDataUri,
+    couleurPrincipale,
+    titreRapport,
+    assignedAgent,
+    statut,
+  } = req.body || {};
+
+  try {
+    const projet = await updateProjet(req.params.id, {
+      nom,
+      entreprise,
+      zone,
+      date,
+      duree,
+      instructions,
+      legendeVisuelle,
+      legendeCarte,
+      clientLogoUrl,
+      clientLogoDataUri,
+      entrepriseLogoUrl,
+      entrepriseLogoDataUri,
+      couleurPrincipale,
+      titreRapport,
+      assignedAgent,
+      statut,
+    });
+
+    if (!projet) {
+      return res.status(404).json({
+        success: false,
+        message: "Projet introuvable.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: projet,
+    });
+  } catch (err) {
+    console.error("[projets] updateProjet:", err?.message || err);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur interne lors de la mise a jour du projet.",
+    });
+  }
+};
+
+const deleteProjetHandler = async (req, res) => {
+  if (AUTH_REQUIRED && req.user && !canManageProjet(getAppRole(req.user))) {
+    return res.status(403).json({
+      success: false,
+      message: "Permission refusee : seuls les gestionnaires peuvent supprimer une campagne.",
+    });
+  }
+
+  const allowed = await assertProjetAccess(req, req.params.id);
+  if (!allowed) {
+    return res.status(404).json({
+      success: false,
+      message: "Projet introuvable.",
+    });
+  }
+
+  try {
+    const existing = await getProjetById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: "Projet introuvable.",
+      });
+    }
+    await deleteProjet(req.params.id);
+    return res.status(200).json({
+      success: true,
+      data: { deleted: true, id: req.params.id },
+    });
+  } catch (err) {
+    console.error("[projets] deleteProjet:", err?.message || err);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur interne lors de la suppression du projet.",
+    });
+  }
+};
+
+const duplicateProjetHandler = async (req, res) => {
+  if (AUTH_REQUIRED && req.user && !canManageProjet(getAppRole(req.user))) {
+    return res.status(403).json({
+      success: false,
+      message: "Permission refusee : seuls les gestionnaires peuvent dupliquer une campagne.",
+    });
+  }
+
+  const allowed = await assertProjetAccess(req, req.params.id);
+  if (!allowed) {
+    return res.status(404).json({
+      success: false,
+      message: "Projet introuvable.",
+    });
+  }
+
+  try {
+    const copy = await duplicateProjet(req.params.id);
+    if (!copy) {
+      return res.status(404).json({
+        success: false,
+        message: "Projet introuvable.",
+      });
+    }
+    return res.status(201).json({
+      success: true,
+      data: copy,
+    });
+  } catch (err) {
+    console.error("[projets] duplicateProjet:", err?.message || err);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur interne lors de la duplication du projet.",
+    });
+  }
+};
+
 module.exports = {
   createProjetHandler,
   getAllProjetsHandler,
   getProjetByIdHandler,
+  updateProjetHandler,
+  deleteProjetHandler,
+  duplicateProjetHandler,
 };

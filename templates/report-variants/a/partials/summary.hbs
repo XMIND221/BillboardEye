@@ -1,0 +1,34 @@
+<section class="pdf-page rv-a-page rv-a-summary">
+  <div class="rv-a-accentbar"></div>
+  <div class="rv-a-summary-inner">
+    <div class="rv-a-summary-main">
+      <p class="rv-a-eyebrow-sm">Résumé de campagne</p>
+      <div class="rv-a-hr"></div>
+      <div class="rv-a-stats">
+        <div class="rv-a-stat">
+          <p class="rv-a-stat-num">{{zonesCountPadded}}</p>
+          <p class="rv-a-stat-lbl">Zones</p>
+        </div>
+        <div class="rv-a-stat rv-a-stat-mid">
+          <p class="rv-a-stat-num">{{billboardsCountPadded}}</p>
+          <p class="rv-a-stat-lbl">Panneaux</p>
+        </div>
+        <div class="rv-a-stat rv-a-stat-last">
+          <p class="rv-a-stat-num rv-a-stat-str">{{duration}}</p>
+          <p class="rv-a-stat-lbl">Durée</p>
+        </div>
+      </div>
+      {{#if noteResume}}
+      <div class="rv-a-note-block">
+        <p class="rv-a-note-title">Note de synthèse</p>
+        <p class="rv-a-note-body">{{noteResume}}</p>
+      </div>
+      {{/if}}
+    </div>
+    <div class="rv-a-foot">
+      <span class="rv-a-foot-brand">{{footerBrand}}</span>
+      <span class="rv-a-foot-note">{{footerNote}}</span>
+      <span class="rv-a-foot-date">{{date}}</span>
+    </div>
+  </div>
+</section>
