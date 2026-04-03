@@ -24,9 +24,9 @@ Migration Supabase : `20260323_panneaux_nom_zone.sql` (colonne `nom_zone`).
 
 ## Variantes PDF (v0 intégrées)
 
-Trois modèles **sans carte** : `templates/report-variants/{a,b,c}/` (couverture, résumé, zones + photos, clôture).
+Quatre modèles **sans carte** : `templates/report-variants/{a,b,c,waouh}/` (couverture, résumé, zones + photos, clôture).
 
-Activer avec la variable d’environnement **`REPORT_PDF_VARIANT=a`** (ou `b`, `c`).  
+Activer avec la variable d’environnement **`REPORT_PDF_VARIANT=a`** (ou `b`, `c`, `waouh`).  
 Sans variable : ce dossier `templates/report/` (comportement historique).
 
 Détails : `templates/report-variants/README.md`.

@@ -1,0 +1,31 @@
+<section class="pdf-page ww-page ww-closing">
+  <div class="ww-topbar"></div>
+  <div class="ww-closing-inner">
+    <div class="ww-close-main">
+      <div class="ww-check">✓</div>
+      <h2 class="ww-close-title">{{closingHeading}}</h2>
+      <p class="ww-close-body">{{closingBody}}</p>
+      <div class="ww-sig">
+        <p class="ww-sig-lbl">{{closingSignatureLabel}}</p>
+        <p class="ww-sig-val">{{closingSignatureValue}}</p>
+      </div>
+
+      <div class="ww-close-logos">
+        {{#if coverClientLogoDataUri}}
+        <img class="ww-logo ww-logo-faded" src="{{coverClientLogoDataUri}}" alt="Logo client" />
+        {{else}}
+        <div class="ww-logo-ph">Logo client</div>
+        {{/if}}
+        {{#if coverEntrepriseLogoDataUri}}
+        <img class="ww-logo ww-logo-faded" src="{{coverEntrepriseLogoDataUri}}" alt="Logo entreprise" />
+        {{else}}
+        <div class="ww-logo-ph">{{footerBrand}}</div>
+        {{/if}}
+      </div>
+    </div>
+
+    <div class="ww-foot">
+      <span>{{footerBrand}}</span>
+    </div>
+  </div>
+</section>

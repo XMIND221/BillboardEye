@@ -1,0 +1,18 @@
+<section class="pdf-page pdf-page--flow ww-page ww-zones">
+  <div class="ww-topbar"></div>
+  <div class="ww-zones-inner">
+    <div class="ww-zones-head">
+      <div class="ww-summary-bar"></div>
+      <p class="ww-eyebrow-sm">Detail des zones</p>
+    </div>
+    <div class="ww-zone-list">
+      {{#each zones}}
+      {{> zone-card}}
+      {{/each}}
+    </div>
+    <div class="ww-foot">
+      <span>{{../footerBrand}}</span>
+      <span>{{../footerNote}}</span>
+    </div>
+  </div>
+</section>

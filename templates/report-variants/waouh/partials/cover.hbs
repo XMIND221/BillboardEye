@@ -1,0 +1,30 @@
+<section class="pdf-page ww-page ww-cover">
+  <div class="ww-topbar"></div>
+  <div class="ww-cover-inner">
+    <div class="ww-cover-logos">
+      {{#if coverClientLogoDataUri}}
+      <img class="ww-logo" src="{{coverClientLogoDataUri}}" alt="Logo client" />
+      {{else}}
+      <div class="ww-logo-ph">Client</div>
+      {{/if}}
+      {{#if coverEntrepriseLogoDataUri}}
+      <img class="ww-logo" src="{{coverEntrepriseLogoDataUri}}" alt="Logo entreprise" />
+      {{else}}
+      <div class="ww-logo-ph">Entreprise</div>
+      {{/if}}
+    </div>
+
+    <div class="ww-cover-main">
+      <div class="ww-cover-line"></div>
+      <h1 class="ww-title">{{campaignName}}</h1>
+      <p class="ww-client">{{#if clientDisplay}}Pour {{clientDisplay}}{{else}}{{clientLine}}{{/if}}</p>
+      <p class="ww-zone">{{zoneLine}}</p>
+      <span class="ww-date-chip">{{date}}</span>
+    </div>
+
+    <div class="ww-cover-foot">
+      <span>{{footerBrand}}</span>
+      <span>Document confidentiel</span>
+    </div>
+  </div>
+</section>

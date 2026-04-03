@@ -14,6 +14,7 @@ import ManagerSortMenu from "../components/manager/ManagerSortMenu";
 import { getPanneaux, getProjets, getRapport, deletePanneau } from "../services/api";
 import { useToast } from "../contexts/ToastContext";
 import { collectPanneauZones, getPanneauVisualTone } from "../utils/managerVisualStatus";
+import { useFocusRefresh } from "../hooks/useFocusRefresh";
 
 const enrichWithPhotos = async (panneau) => {
   if (panneau.photos?.faceA?.url || panneau.photos?.faceB?.url) return panneau;
@@ -42,6 +43,17 @@ const SORT_OPTIONS = [
   { key: "name", label: "Tri : nom site" },
   { key: "campaign", label: "Tri : campagne" },
 ];
+const INITIAL_ENRICH_LIMIT = 12;
+
+const norm = (v) => String(v || "").trim().toLowerCase();
+const getPanneauSortTimestamp = (item) => {
+  const candidates = [item?.createdAt, item?.date];
+  for (const value of candidates) {
+    const t = new Date(value || 0).getTime();
+    if (Number.isFinite(t) && t > 0) return t;
+  }
+  return 0;
+};
 
 export default function ManagerPanneauxScreen({ navigation }) {
   const { showToast } = useToast();
@@ -67,7 +79,7 @@ export default function ManagerPanneauxScreen({ navigation }) {
         map[p.id] = p.nom;
       });
       setProjetsById(map);
-      let list = (panels || []).map((item) => ({
+      const baseList = (panels || []).map((item) => ({
         id: item.id,
         serverId: item.id,
         entreprise: item.entreprise,
@@ -79,27 +91,41 @@ export default function ManagerPanneauxScreen({ navigation }) {
         createdAt: item.createdAt,
         photos: item.photos || null,
       }));
-      list = await Promise.all(list.map(enrichWithPhotos));
-      setPanneaux(list);
+      // First paint quickly, then enrich visible rows first.
+      setPanneaux(baseList);
+      const firstBatch = baseList.slice(0, INITIAL_ENRICH_LIMIT);
+      const remainingBatch = baseList.slice(INITIAL_ENRICH_LIMIT);
+      const enrichedFirst = await Promise.all(firstBatch.map(enrichWithPhotos));
+      setPanneaux([...enrichedFirst, ...remainingBatch]);
+      if (remainingBatch.length > 0) {
+        setTimeout(async () => {
+          try {
+            const enrichedRemaining = await Promise.all(remainingBatch.map(enrichWithPhotos));
+            setPanneaux([...enrichedFirst, ...enrichedRemaining]);
+          } catch {
+            // Keep partial enrichment if background fetch fails.
+          }
+        }, 0);
+      }
     } catch (err) {
       setError(err.message || "Impossible de charger les panneaux.");
     }
   }, []);
 
-  useEffect(() => {
-    const unsub = navigation.addListener("focus", () => {
-      (async () => {
-        setLoading(true);
-        await load();
-        setLoading(false);
-      })();
-    });
-    return unsub;
-  }, [load, navigation]);
+  const refreshPanneaux = useCallback(async () => {
+    if (panneaux.length === 0) setLoading(true);
+    await load();
+    setLoading(false);
+  }, [load, panneaux.length]);
+
+  const runFocusRefresh = useFocusRefresh(navigation, refreshPanneaux, {
+    minIntervalMs: 20000,
+    runOnMount: true,
+  });
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await load();
+    await runFocusRefresh(true);
     setRefreshing(false);
   };
 
@@ -118,18 +144,16 @@ export default function ManagerPanneauxScreen({ navigation }) {
 
   const filteredSorted = useMemo(() => {
     let list = [...panneaux];
-    const q = search.trim().toLowerCase();
+    const q = norm(search);
     if (q) {
       list = list.filter((p) => {
-        const addr = String(p.localisation?.adresse || "").toLowerCase();
+        const addr = norm(p.localisation?.adresse);
+        const campaignName = norm(projetsById[p.projetId]);
         return (
-          String(p.entreprise || "")
-            .toLowerCase()
-            .includes(q) ||
-          String(p.nomZone || "")
-            .toLowerCase()
-            .includes(q) ||
-          addr.includes(q)
+          norm(p.entreprise).includes(q) ||
+          norm(p.nomZone).includes(q) ||
+          addr.includes(q) ||
+          campaignName.includes(q)
         );
       });
     }
@@ -140,20 +164,35 @@ export default function ManagerPanneauxScreen({ navigation }) {
       list = list.filter((p) => p.projetId === projetKey);
     }
     if (zoneKey !== "all") {
-      list = list.filter((p) => String(p.nomZone || "").trim() === zoneKey);
+      const zone = norm(zoneKey);
+      list = list.filter((p) => norm(p.nomZone) === zone);
     }
     if (sortKey === "name") {
       list.sort((a, b) => {
         const na = (a.nomZone && String(a.nomZone).trim()) || a.entreprise || "";
         const nb = (b.nomZone && String(b.nomZone).trim()) || b.entreprise || "";
-        return na.localeCompare(nb, "fr");
+        const cmp = na.localeCompare(nb, "fr", { sensitivity: "base" });
+        if (cmp !== 0) return cmp;
+        return getPanneauSortTimestamp(b) - getPanneauSortTimestamp(a);
       });
     } else if (sortKey === "campaign") {
-      list.sort((a, b) =>
-        String(projetsById[a.projetId] || "").localeCompare(String(projetsById[b.projetId] || ""), "fr"),
-      );
+      list.sort((a, b) => {
+        const cmp = String(projetsById[a.projetId] || "").localeCompare(String(projetsById[b.projetId] || ""), "fr", {
+          sensitivity: "base",
+        });
+        if (cmp !== 0) return cmp;
+        const na = (a.nomZone && String(a.nomZone).trim()) || a.entreprise || "";
+        const nb = (b.nomZone && String(b.nomZone).trim()) || b.entreprise || "";
+        return na.localeCompare(nb, "fr", { sensitivity: "base" });
+      });
     } else {
-      list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      list.sort((a, b) => {
+        const diff = getPanneauSortTimestamp(b) - getPanneauSortTimestamp(a);
+        if (diff !== 0) return diff;
+        const na = (a.nomZone && String(a.nomZone).trim()) || a.entreprise || "";
+        const nb = (b.nomZone && String(b.nomZone).trim()) || b.entreprise || "";
+        return na.localeCompare(nb, "fr", { sensitivity: "base" });
+      });
     }
     return list;
   }, [panneaux, search, statusKey, projetKey, zoneKey, sortKey, projetsById]);
@@ -164,7 +203,7 @@ export default function ManagerPanneauxScreen({ navigation }) {
       await deletePanneau(deleteTarget.id);
       showToast("Panneau supprimé");
       setDeleteTarget(null);
-      await load();
+      await runFocusRefresh(true);
     } catch (e) {
       showToast(e.message || "Suppression impossible", "error");
       setDeleteTarget(null);
@@ -200,7 +239,7 @@ export default function ManagerPanneauxScreen({ navigation }) {
           <Text style={styles.addBtnText}>Ajouter un panneau</Text>
         </TouchableOpacity>
 
-        <ErrorBanner message={error} onRetry={load} />
+        <ErrorBanner message={error} onRetry={() => runFocusRefresh(true)} />
         {loading ? (
           <ActivityIndicator size="large" color={theme.colors.primary} style={styles.loader} />
         ) : (

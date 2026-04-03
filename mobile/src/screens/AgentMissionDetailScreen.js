@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { theme } from "../theme";
 import { getMissionProgress, parseZones } from "../services/missionStorage";
 import Button from "../components/Button";
+import { useFocusRefresh } from "../hooks/useFocusRefresh";
 
 export default function AgentMissionDetailScreen({ navigation, route }) {
   const mission = route.params?.mission;
@@ -20,16 +21,16 @@ export default function AgentMissionDetailScreen({ navigation, route }) {
     isDone: false,
   });
 
-  useEffect(() => {
-    const load = async () => {
-      if (!mission?.id) return;
-      const current = await getMissionProgress(mission.id, zones);
-      setProgress(current);
-    };
-    const unsubscribe = navigation.addListener("focus", load);
-    load();
-    return unsubscribe;
-  }, [navigation, mission?.id, zones]);
+  const loadProgress = useCallback(async () => {
+    if (!mission?.id) return;
+    const current = await getMissionProgress(mission.id, zones);
+    setProgress(current);
+  }, [mission?.id, zones]);
+
+  useFocusRefresh(navigation, loadProgress, {
+    minIntervalMs: 10000,
+    runOnMount: true,
+  });
 
   return (
     <View style={styles.container}>

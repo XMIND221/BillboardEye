@@ -35,6 +35,8 @@ const createProjetHandler = async (req, res) => {
     titreRapport,
     assignedAgent,
     statut,
+    reportPdfVariant,
+    reportLayout,
   } = req.body || {};
 
   if (!nom) {
@@ -69,6 +71,8 @@ const createProjetHandler = async (req, res) => {
       titreRapport,
       assignedAgent,
       statut,
+      reportPdfVariant,
+      reportLayout,
     });
 
     return res.status(201).json({
@@ -166,6 +170,8 @@ const updateProjetHandler = async (req, res) => {
     titreRapport,
     assignedAgent,
     statut,
+    reportPdfVariant,
+    reportLayout,
   } = req.body || {};
 
   try {
@@ -186,6 +192,8 @@ const updateProjetHandler = async (req, res) => {
       titreRapport,
       assignedAgent,
       statut,
+      reportPdfVariant,
+      reportLayout,
     });
 
     if (!projet) {

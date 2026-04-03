@@ -1,0 +1,17 @@
+{{! Variante WAOUH AGENCE — alignée au zip v0 }}
+<div class="report-variant-waouh" style="--primary-color: {{primaryCss}};">
+  {{#if showCover}}
+  {{> cover}}
+  {{/if}}
+  {{#if showSummary}}
+  {{> summary}}
+  {{/if}}
+  {{#if showPanels}}
+  {{#if zones.length}}
+  {{> zones}}
+  {{/if}}
+  {{/if}}
+  {{#if showClosing}}
+  {{> closing}}
+  {{/if}}
+</div>

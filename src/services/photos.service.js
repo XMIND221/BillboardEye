@@ -197,10 +197,24 @@ const getPhotosByPanneauId = async (panneauId) => {
   return (data || []).map(normalizePhoto);
 };
 
+const getAllPhotos = async () => {
+  let result = await supabase.from("photos").select("*");
+  if (result.error) {
+    // Some schemas keep camelCase column names
+    result = await supabase.from("photos").select("id,panneauId,type,url,createdAt");
+  }
+  const { data, error } = result;
+  if (error) {
+    throw formatSupabaseError("getAllPhotos", error);
+  }
+  return (data || []).map(normalizePhoto);
+};
+
 module.exports = {
   uploadToSupabase,
   uploadLogoToSupabase,
   uploadLogoFromDataUri,
   addPhoto,
   getPhotosByPanneauId,
+  getAllPhotos,
 };

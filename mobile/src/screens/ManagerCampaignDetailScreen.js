@@ -18,6 +18,7 @@ import { getProjetReport, getProjetPDFUrl, updateProjet } from "../services/api"
 import { parseZones } from "../services/missionStorage";
 import { getCampaignConfig } from "../services/campaignConfigStorage";
 import { useToast } from "../contexts/ToastContext";
+import { useFocusRefresh } from "../hooks/useFocusRefresh";
 
 export default function ManagerCampaignDetailScreen({ route, navigation }) {
   const { showToast } = useToast();
@@ -103,9 +104,10 @@ export default function ManagerCampaignDetailScreen({ route, navigation }) {
     }
   }, [campaign?.id]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const runFocusRefresh = useFocusRefresh(navigation, loadData, {
+    minIntervalMs: 15000,
+    runOnMount: true,
+  });
 
   const saveAgent = async () => {
     if (!campaign?.id) return;
@@ -117,6 +119,7 @@ export default function ManagerCampaignDetailScreen({ route, navigation }) {
       navigation.setParams({ campaign: next });
       showToast("Agent assigné");
       setAssignOpen(false);
+      await runFocusRefresh(true);
     } catch (e) {
       showToast(e.message || "Enregistrement impossible", "error");
     } finally {
@@ -141,7 +144,7 @@ export default function ManagerCampaignDetailScreen({ route, navigation }) {
       {!!error && (
         <View style={styles.errorBlock}>
           <Text style={styles.error}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadData} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.retryButton} onPress={() => runFocusRefresh(true)} activeOpacity={0.85}>
             <Text style={styles.retryText}>Réessayer</Text>
           </TouchableOpacity>
         </View>

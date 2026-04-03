@@ -4,12 +4,16 @@
   "private": true,
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
-    "start": "cross-env EXPO_NO_DEPENDENCY_VALIDATION=1 expo start",
-    "start:clear": "cross-env EXPO_NO_DEPENDENCY_VALIDATION=1 expo start -c",
-    "start:offline": "cross-env EXPO_NO_DEPENDENCY_VALIDATION=1 expo start --offline",
-    "android": "cross-env EXPO_NO_DEPENDENCY_VALIDATION=1 expo start --android",
-    "ios": "cross-env EXPO_NO_DEPENDENCY_VALIDATION=1 expo start --ios",
-    "web": "cross-env EXPO_NO_DEPENDENCY_VALIDATION=1 expo start --web"
+    "start": "expo start",
+    "start:go": "scripts\\start-expo-go.cmd",
+    "start:go:tunnel": "expo start --host tunnel --port 8081",
+    "start:clear": "expo start -c",
+    "start:offline": "expo start --offline",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "doctor": "scripts\\doctor-mobile-env.cmd",
+    "doctor:expo": "npx expo-doctor"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -20,8 +24,8 @@
     "@react-navigation/native-stack": "^6.11.0",
     "@supabase/supabase-js": "^2.99.3",
     "expo": "~54.0.33",
-    "expo-constants": "~18.0.13",
     "expo-asset": "~12.0.12",
+    "expo-constants": "~18.0.13",
     "expo-image": "~3.0.11",
     "expo-image-manipulator": "~14.0.8",
     "expo-image-picker": "~17.0.10",
@@ -34,7 +38,5 @@
     "react-native-screens": "~4.16.0",
     "react-native-web": "^0.21.0"
   },
-  "devDependencies": {
-    "cross-env": "^10.1.0"
-  }
+  "devDependencies": {}
 }

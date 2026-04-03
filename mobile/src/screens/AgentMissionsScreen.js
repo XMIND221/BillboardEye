@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { useToast } from "../contexts/ToastContext";
 import { theme } from "../theme";
 import AppHeader from "../components/AppHeader";
 import AgentOfflineBanner from "../components/AgentOfflineBanner";
+import { useFocusRefresh } from "../hooks/useFocusRefresh";
 
 const CARD_COLORS = [theme.colors.pastels.blue, theme.colors.pastels.green, theme.colors.pastels.orange, theme.colors.pastels.purple];
 
@@ -123,20 +124,20 @@ export default function AgentMissionsScreen({ navigation }) {
     [missions, filter],
   );
 
-  useEffect(() => {
-    const bootstrap = async () => {
-      setLoading(true);
-      await loadMissions();
-      setLoading(false);
-    };
-    const unsubscribe = navigation.addListener("focus", bootstrap);
-    bootstrap();
-    return unsubscribe;
-  }, [loadMissions, navigation]);
+  const refreshMissions = useCallback(async () => {
+    if (missions.length === 0) setLoading(true);
+    await loadMissions();
+    setLoading(false);
+  }, [loadMissions, missions.length]);
+
+  const runFocusRefresh = useFocusRefresh(navigation, refreshMissions, {
+    minIntervalMs: 20000,
+    runOnMount: true,
+  });
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadMissions();
+    await runFocusRefresh(true);
     setRefreshing(false);
   };
 
@@ -181,7 +182,7 @@ export default function AgentMissionsScreen({ navigation }) {
         {!!error && (
           <View style={styles.errorBlock}>
             <Text style={styles.error}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={loadMissions} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.retryButton} onPress={() => runFocusRefresh(true)} activeOpacity={0.85}>
               <Text style={styles.retryText}>Réessayer</Text>
             </TouchableOpacity>
           </View>

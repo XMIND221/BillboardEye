@@ -1,0 +1,33 @@
+<article class="billboard-card ww-card">
+  <div class="ww-card-head">
+    <div class="ww-card-left">
+      <span class="ww-card-idx">{{indexPadded}}</span>
+      <div>
+        <p class="ww-card-name">{{name}}</p>
+        <p class="ww-card-meta">{{gpsCoordinates}}</p>
+      </div>
+    </div>
+    <span class="ww-card-time">{{timestamp}}</span>
+  </div>
+
+  <div class="ww-card-body">
+    <div class="ww-face-imgs">
+      <figure class="ww-fig">
+        <p class="ww-face-caption">{{faceALabel}}</p>
+        {{#if faceAImage}}
+        <div class="ww-fig-img"><img src="{{faceAImage}}" alt="{{faceALabel}}" /></div>
+        {{else}}
+        <div class="ww-fig-placeholder">{{faceALabel}}</div>
+        {{/if}}
+      </figure>
+      <figure class="ww-fig">
+        <p class="ww-face-caption">{{faceBLabel}}</p>
+        {{#if faceBImage}}
+        <div class="ww-fig-img"><img src="{{faceBImage}}" alt="{{faceBLabel}}" /></div>
+        {{else}}
+        <div class="ww-fig-placeholder">{{faceBLabel}}</div>
+        {{/if}}
+      </figure>
+    </div>
+  </div>
+</article>

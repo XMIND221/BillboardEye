@@ -14,10 +14,14 @@ import ConfirmModal from "../components/manager/ConfirmModal";
 import ManagerSearchBar from "../components/manager/ManagerSearchBar";
 import ManagerChipRow from "../components/manager/ManagerChipRow";
 import ManagerSortMenu from "../components/manager/ManagerSortMenu";
-import { attachReportMetricsToCampaigns } from "../utils/campaignMetrics";
+import {
+  attachCachedReportMetricsToCampaigns,
+  warmReportMetricsCache,
+} from "../utils/campaignMetrics";
 import { getCampaignVisualTone, collectCampaignZones } from "../utils/managerVisualStatus";
 import { parseZones } from "../services/missionStorage";
 import { useToast } from "../contexts/ToastContext";
+import { useFocusRefresh } from "../hooks/useFocusRefresh";
 
 const STATUS_FILTER_ITEMS = [
   { key: "all", label: "Tous statuts" },
@@ -33,7 +37,18 @@ const SORT_OPTIONS = [
   { key: "progress", label: "Tri : progression" },
 ];
 
-export default function ManagerCampaignsScreen({ navigation, userEmail = "", onSwitchRole, onSignOut }) {
+const norm = (v) => String(v || "").trim().toLowerCase();
+
+const getSortTimestamp = (item) => {
+  const candidates = [item?.createdAt, item?.date];
+  for (const value of candidates) {
+    const t = new Date(value || 0).getTime();
+    if (Number.isFinite(t) && t > 0) return t;
+  }
+  return 0;
+};
+
+export default function ManagerCampaignsScreen({ navigation, route, userEmail = "", onSwitchRole, onSignOut }) {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -51,27 +66,36 @@ export default function ManagerCampaignsScreen({ navigation, userEmail = "", onS
     try {
       setError("");
       const campaigns = await getProjets();
-      const rows = await attachReportMetricsToCampaigns(campaigns || []);
-      setItems(rows);
+      const baseRows = attachCachedReportMetricsToCampaigns(campaigns || []);
+      setItems(baseRows);
+      await warmReportMetricsCache(campaigns || []);
+      const refreshedRows = attachCachedReportMetricsToCampaigns(campaigns || []);
+      setItems(refreshedRows);
     } catch (err) {
       setError(err.message || "Impossible de charger les campagnes.");
     }
   }, []);
 
+  const refreshCampaigns = useCallback(async () => {
+    if (items.length === 0) setLoading(true);
+    await loadData();
+    setLoading(false);
+  }, [loadData, items.length]);
+
+  const runFocusRefresh = useFocusRefresh(navigation, refreshCampaigns, {
+    minIntervalMs: 20000,
+    runOnMount: true,
+  });
+
   useEffect(() => {
-    const bootstrap = async () => {
-      setLoading(true);
-      await loadData();
-      setLoading(false);
-    };
-    const unsubscribe = navigation.addListener("focus", bootstrap);
-    bootstrap();
-    return unsubscribe;
-  }, [loadData, navigation]);
+    const token = route?.params?.forceRefreshToken;
+    if (!token) return;
+    runFocusRefresh(true);
+  }, [route?.params?.forceRefreshToken, runFocusRefresh]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await runFocusRefresh(true);
     setRefreshing(false);
   };
 
@@ -82,30 +106,41 @@ export default function ManagerCampaignsScreen({ navigation, userEmail = "", onS
 
   const filteredSorted = useMemo(() => {
     let list = [...items];
-    const q = search.trim().toLowerCase();
+    const q = norm(search);
     if (q) {
       list = list.filter(
         (i) =>
-          String(i.nom || "")
-            .toLowerCase()
-            .includes(q) ||
-          String(i.entreprise || "")
-            .toLowerCase()
-            .includes(q),
+          norm(i.nom).includes(q) ||
+          norm(i.entreprise).includes(q) ||
+          norm(i.zone).includes(q) ||
+          norm(i.assignedAgent).includes(q),
       );
     }
     if (statusKey !== "all") {
       list = list.filter((i) => getCampaignVisualTone(i) === statusKey);
     }
     if (zoneKey !== "all") {
-      list = list.filter((i) => parseZones(i.zone).includes(zoneKey));
+      const z = norm(zoneKey);
+      list = list.filter((i) => parseZones(i.zone).some((zone) => norm(zone) === z));
     }
     if (sortKey === "name") {
-      list.sort((a, b) => String(a.nom || "").localeCompare(String(b.nom || ""), "fr"));
+      list.sort((a, b) => {
+        const cmp = String(a.nom || "").localeCompare(String(b.nom || ""), "fr", { sensitivity: "base" });
+        if (cmp !== 0) return cmp;
+        return getSortTimestamp(b) - getSortTimestamp(a);
+      });
     } else if (sortKey === "progress") {
-      list.sort((a, b) => (b.progress || 0) - (a.progress || 0));
+      list.sort((a, b) => {
+        const diff = (b.progress || 0) - (a.progress || 0);
+        if (diff !== 0) return diff;
+        return getSortTimestamp(b) - getSortTimestamp(a);
+      });
     } else {
-      list.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+      list.sort((a, b) => {
+        const diff = getSortTimestamp(b) - getSortTimestamp(a);
+        if (diff !== 0) return diff;
+        return String(a.nom || "").localeCompare(String(b.nom || ""), "fr", { sensitivity: "base" });
+      });
     }
     return list;
   }, [items, search, statusKey, zoneKey, sortKey]);
@@ -116,7 +151,7 @@ export default function ManagerCampaignsScreen({ navigation, userEmail = "", onS
       await deleteProjet(deleteTarget.id);
       showToast("Campagne supprimée");
       setDeleteTarget(null);
-      await loadData();
+      await runFocusRefresh(true);
     } catch (e) {
       showToast(e.message || "Suppression impossible", "error");
       setDeleteTarget(null);
@@ -130,7 +165,7 @@ export default function ManagerCampaignsScreen({ navigation, userEmail = "", onS
       await duplicateProjet(c.id);
       showToast("Campagne dupliquée");
       setSheetCampaign(null);
-      await loadData();
+      await runFocusRefresh(true);
     } catch (e) {
       showToast(e.message || "Duplication impossible", "error");
     } finally {
@@ -170,7 +205,7 @@ export default function ManagerCampaignsScreen({ navigation, userEmail = "", onS
           <Text style={styles.createBtnText}>Créer une campagne</Text>
         </TouchableOpacity>
 
-        <ErrorBanner message={error} onRetry={loadData} />
+        <ErrorBanner message={error} onRetry={() => runFocusRefresh(true)} />
         {loading ? (
           <ActivityIndicator size="large" color={theme.colors.accent} style={styles.loader} />
         ) : (

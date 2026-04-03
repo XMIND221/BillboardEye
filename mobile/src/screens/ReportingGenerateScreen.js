@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, RefreshControl, Linking } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { getProjets, getProjetPDFUrl, getProjetReport } from "../services/api";
+import { getProjets, getProjetPDFUrl, getProjetReport, updateProjet } from "../services/api";
 import { theme } from "../theme";
 import AppHeader from "../components/AppHeader";
 import SectionHeader from "../components/manager/SectionHeader";
@@ -18,6 +18,8 @@ import {
 } from "../services/reportHistoryStorage";
 import { useToast } from "../contexts/ToastContext";
 import { MANAGER_REPORT_SCREENS } from "../navigation/reportScreens";
+import { labelForPdfTemplate, PDF_TEMPLATE_OPTIONS } from "../constants/pdfTemplates";
+import { useFocusRefresh } from "../hooks/useFocusRefresh";
 
 const parseZones = (zoneStr) =>
   String(zoneStr || "")
@@ -140,10 +142,20 @@ export default function ReportingGenerateScreen({ navigation, route }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadCampaigns(true);
-    if (selectedCampaignIdRef.current) await loadReport(selectedCampaignIdRef.current);
+    await runFocusRefresh(true);
     setRefreshing(false);
   };
+
+  const refreshReportingData = useCallback(async () => {
+    await loadCampaigns(true);
+    if (selectedCampaignIdRef.current) await loadReport(selectedCampaignIdRef.current);
+    await loadHistory();
+  }, [loadCampaigns, loadReport, loadHistory]);
+
+  const runFocusRefresh = useFocusRefresh(navigation, refreshReportingData, {
+    minIntervalMs: 15000,
+    runOnMount: false,
+  });
 
   const selectedCampaign = useMemo(
     () => campaigns.find((item) => item.id === selectedCampaignId) || null,
@@ -167,6 +179,30 @@ export default function ReportingGenerateScreen({ navigation, route }) {
     } catch (_err) {}
   };
 
+  const selectTemplate = async (variant) => {
+    if (!selectedCampaignId || !reportData) return;
+    const normalized = String(variant || "default");
+    try {
+      setError("");
+      await updateProjet(selectedCampaignId, { reportPdfVariant: normalized });
+      setReportData((prev) =>
+        prev
+          ? {
+              ...prev,
+              projet: { ...(prev.projet || {}), reportPdfVariant: normalized },
+            }
+          : prev,
+      );
+      setCampaigns((prev) =>
+        prev.map((c) => (c.id === selectedCampaignId ? { ...c, reportPdfVariant: normalized } : c)),
+      );
+      showToast(`Modèle ${labelForPdfTemplate(normalized)} sélectionné`);
+    } catch (err) {
+      setError(err.message || "Impossible de changer le modèle PDF.");
+      showToast("Changement de modèle impossible", "error");
+    }
+  };
+
   const generateDirect = async () => {
     if (!selectedCampaignId) return;
     const hid = `r-${Date.now()}-${selectedCampaignId}`;
@@ -182,7 +218,10 @@ export default function ReportingGenerateScreen({ navigation, route }) {
     try {
       setGeneratingDirect(true);
       setError("");
-      const result = await getProjetPDFUrl(selectedCampaignId);
+      const forcedVariant = String(
+        reportData?.projet?.reportPdfVariant || selectedCampaign?.reportPdfVariant || "default",
+      ).toLowerCase();
+      const result = await getProjetPDFUrl(selectedCampaignId, { reportPdfVariant: forcedVariant });
       const url = result?.url || "";
       await updateReportHistoryEntry(hid, { status: "generated", pdfUrl: url });
       await loadHistory();
@@ -294,8 +333,7 @@ export default function ReportingGenerateScreen({ navigation, route }) {
         <ErrorBanner
           message={error}
           onRetry={async () => {
-            await loadCampaigns(true);
-            if (selectedCampaignIdRef.current) await loadReport(selectedCampaignIdRef.current);
+            await runFocusRefresh(true);
           }}
         />
 
@@ -353,6 +391,26 @@ export default function ReportingGenerateScreen({ navigation, route }) {
                   <Text style={styles.summaryValue}>
                     {reportData.projet?.date ? new Date(reportData.projet.date).toLocaleDateString("fr-FR") : "-"}
                   </Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Modèle PDF</Text>
+                  <Text style={styles.summaryValue}>{labelForPdfTemplate(reportData.projet?.reportPdfVariant)}</Text>
+                </View>
+                <Text style={styles.templateLabel}>Choisir un template</Text>
+                <View style={styles.templateRow}>
+                  {PDF_TEMPLATE_OPTIONS.map((opt) => {
+                    const selected = (reportData.projet?.reportPdfVariant || "default") === opt.value;
+                    return (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={[styles.templateChip, selected && styles.templateChipSelected]}
+                        onPress={() => selectTemplate(opt.value)}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={[styles.templateChipTitle, selected && styles.templateChipTitleSelected]}>{opt.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
 
                 {total > 0 ? (
@@ -504,6 +562,22 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
   summaryLabel: { color: theme.colors.textSecondary, fontSize: 14 },
   summaryValue: { color: theme.colors.text, fontSize: 14, fontWeight: "600" },
+  templateLabel: { marginTop: 8, marginBottom: 8, color: theme.colors.textSecondary, fontSize: 13, fontWeight: "700" },
+  templateRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
+  templateChip: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  templateChipSelected: {
+    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.muted,
+  },
+  templateChipTitle: { color: theme.colors.text, fontSize: 12, fontWeight: "700" },
+  templateChipTitleSelected: { color: theme.colors.accent },
   zonesPreview: { marginTop: theme.spacing.sm },
   zonesLabel: { color: theme.colors.textSecondary, fontSize: 12, marginBottom: 6 },
   zoneItem: { color: theme.colors.text, fontSize: 13, marginBottom: 2 },

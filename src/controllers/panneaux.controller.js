@@ -11,8 +11,85 @@ const {
   filterPanneauxForUser,
 } = require("../lib/access-control");
 
+const ALLOWED_STATUTS = new Set(["pending", "synced", "error"]);
+
+const normalizeText = (value, max = 180) => {
+  if (value == null) return undefined;
+  const text = String(value).trim();
+  return text.slice(0, max);
+};
+
+const parseCoordinate = (value) => {
+  if (value == null || value === "") return null;
+  const normalized = String(value).replace(",", ".").trim();
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : null;
+};
+
+const validatePanneauPayload = (body = {}, { partial = false } = {}) => {
+  const errors = [];
+  const entreprise = normalizeText(body.entreprise, 180);
+  const adresse = normalizeText(body.adresse, 400) || "";
+  const nomZone = normalizeText(body.nomZone, 220);
+  const projetId = normalizeText(body.projetId, 120) || null;
+  const statut = body.statut != null ? String(body.statut).trim().toLowerCase() : undefined;
+  const latitude = parseCoordinate(body.latitude);
+  const longitude = parseCoordinate(body.longitude);
+
+  const rawFaces = body.nombreFaces;
+  const parsedFaces = rawFaces == null || rawFaces === "" ? undefined : Number.parseInt(rawFaces, 10);
+  const nombreFaces =
+    parsedFaces == null || Number.isNaN(parsedFaces) ? undefined : Math.max(1, Math.min(parsedFaces, 12));
+
+  if (!partial || body.entreprise !== undefined) {
+    if (!entreprise) errors.push("Le champ entreprise est obligatoire.");
+  }
+
+  if (!partial || body.latitude !== undefined) {
+    if (latitude == null) errors.push("Latitude invalide.");
+    else if (latitude < -90 || latitude > 90) errors.push("Latitude hors bornes (-90 a 90).");
+  }
+
+  if (!partial || body.longitude !== undefined) {
+    if (longitude == null) errors.push("Longitude invalide.");
+    else if (longitude < -180 || longitude > 180) errors.push("Longitude hors bornes (-180 a 180).");
+  }
+
+  if (rawFaces !== undefined && (nombreFaces == null || nombreFaces < 1)) {
+    errors.push("Le nombre de faces doit etre un entier >= 1.");
+  }
+
+  if (statut !== undefined && !ALLOWED_STATUTS.has(statut)) {
+    errors.push("Statut invalide (pending, synced, error).");
+  }
+
+  return {
+    errors,
+    value: {
+      entreprise,
+      latitude,
+      longitude,
+      adresse,
+      nomZone,
+      nombreFaces,
+      statut,
+      projetId,
+      createdAt: body.createdAt,
+    },
+  };
+};
+
 const createPanneauHandler = async (req, res) => {
-  const { entreprise, latitude, longitude, adresse, nomZone, nombreFaces, statut, projetId, createdAt } = req.body;
+  const { errors, value } = validatePanneauPayload(req.body || {}, { partial: false });
+  const { entreprise, latitude, longitude, adresse, nomZone, nombreFaces, statut, projetId, createdAt } = value;
+
+  if (errors.length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: errors[0],
+      errors,
+    });
+  }
 
   if (projetId) {
     const allowed = await assertProjetAccess(req, projetId);
@@ -24,36 +101,15 @@ const createPanneauHandler = async (req, res) => {
     }
   }
 
-  if (!entreprise) {
-    return res.status(400).json({
-      success: false,
-      message: "Le champ entreprise est obligatoire.",
-    });
-  }
-
-  if (latitude === undefined) {
-    return res.status(400).json({
-      success: false,
-      message: "Le champ latitude est obligatoire.",
-    });
-  }
-
-  if (longitude === undefined) {
-    return res.status(400).json({
-      success: false,
-      message: "Le champ longitude est obligatoire.",
-    });
-  }
-
   try {
     const panneau = await createPanneau({
       entreprise,
-      latitude: Number(latitude),
-      longitude: Number(longitude),
+      latitude,
+      longitude,
       adresse,
       nomZone,
-      nombreFaces,
-      statut,
+      nombreFaces: nombreFaces ?? 1,
+      statut: statut || "pending",
       projetId,
       createdAt,
     });
@@ -140,8 +196,29 @@ const updatePanneauHandler = async (req, res) => {
     }
   }
 
+  const { errors, value } = validatePanneauPayload(req.body || {}, { partial: true });
+  if (errors.length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: errors[0],
+      errors,
+    });
+  }
+
+  const patch = {
+    ...req.body,
+    ...(value.entreprise !== undefined ? { entreprise: value.entreprise } : {}),
+    ...(value.latitude !== undefined && value.latitude !== null ? { latitude: value.latitude } : {}),
+    ...(value.longitude !== undefined && value.longitude !== null ? { longitude: value.longitude } : {}),
+    ...(value.adresse !== undefined ? { adresse: value.adresse } : {}),
+    ...(value.nomZone !== undefined ? { nomZone: value.nomZone } : {}),
+    ...(value.projetId !== undefined ? { projetId: value.projetId } : {}),
+    ...(value.statut !== undefined ? { statut: value.statut } : {}),
+    ...(value.nombreFaces !== undefined ? { nombreFaces: value.nombreFaces } : {}),
+  };
+
   try {
-    const panneau = await updatePanneau(req.params.id, req.body || {});
+    const panneau = await updatePanneau(req.params.id, patch);
     if (!panneau) {
       return res.status(404).json({
         success: false,

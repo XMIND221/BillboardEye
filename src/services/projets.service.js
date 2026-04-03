@@ -38,6 +38,25 @@ const sanitizeStoredLogoUrl = (raw) => {
   return "";
 };
 
+const normalizeReportLayout = (layout) => {
+  const sections = Array.isArray(layout?.sections) ? layout.sections : [];
+  const safeSections = sections
+    .map((s) => ({
+      key: String(s?.key || "").trim().toLowerCase(),
+      visible: s?.visible !== false,
+      deleted: s?.deleted === true,
+    }))
+    .filter((s) => s.key);
+  return { sections: safeSections };
+};
+
+/** @param {unknown} v */
+const normalizeReportPdfVariant = (v) => {
+  const s = String(v ?? "default").trim().toLowerCase();
+  if (s === "a" || s === "b" || s === "c" || s === "waouh") return s;
+  return "default";
+};
+
 const normalizeProjet = (row) => {
   return {
     id: row.id,
@@ -45,6 +64,7 @@ const normalizeProjet = (row) => {
     entreprise: row.entreprise,
     zone: row.zone || "",
     date: row.date,
+    createdAt: row.created_at || row.createdAt || row.date || null,
     duree: row.duree || row.duration || "",
     instructions: row.instructions || "",
     legendeVisuelle: row.legende_visuelle || row.legendeVisuelle || "",
@@ -54,6 +74,10 @@ const normalizeProjet = (row) => {
     couleurPrincipale: row.couleur_principale || row.couleurPrincipale || "#E11D48",
     titreRapport: row.titre_rapport || row.titreRapport || "",
     assignedAgent: row.assigned_agent || row.assignedAgent || "",
+    /** Template PDF Handlebars : default | a | b | c | waouh */
+    reportPdfVariant: normalizeReportPdfVariant(row.report_pdf_variant ?? row.reportPdfVariant),
+    /** Layout d'édition visuelle persistant */
+    reportLayout: normalizeReportLayout(row.report_layout ?? row.reportLayout ?? {}),
     /** planned | active | completed | archived */
     statut: row.statut || "active",
   };
@@ -80,6 +104,8 @@ const createProjet = async (data) => {
     couleur_principale: data.couleurPrincipale || "#2563EB",
     titre_rapport: data.titreRapport || "",
     assigned_agent: data.assignedAgent || "",
+    report_pdf_variant: normalizeReportPdfVariant(data.reportPdfVariant),
+    report_layout: normalizeReportLayout(data.reportLayout),
     statut: data.statut || "active",
   };
 
@@ -98,6 +124,8 @@ const createProjet = async (data) => {
     couleurPrincipale: data.couleurPrincipale || "#2563EB",
     titreRapport: data.titreRapport || "",
     assignedAgent: data.assignedAgent || "",
+    reportPdfVariant: normalizeReportPdfVariant(data.reportPdfVariant),
+    reportLayout: normalizeReportLayout(data.reportLayout),
     statut: data.statut || "active",
   };
 
@@ -129,13 +157,22 @@ const createProjet = async (data) => {
 };
 
 const getAllProjets = async () => {
-  const { data, error } = await supabase.from("projets").select("*").order("date", { ascending: false });
+  let data = null;
+  let error = null;
+
+  ({ data, error } = await supabase.from("projets").select("*").order("created_at", { ascending: false }));
+  if (error) {
+    ({ data, error } = await supabase.from("projets").select("*").order("createdAt", { ascending: false }));
+  }
+  if (error) {
+    ({ data, error } = await supabase.from("projets").select("*").order("date", { ascending: false }));
+  }
 
   if (error) {
     throw formatSupabaseError("getAllProjets", error);
   }
 
-  return data.map(normalizeProjet);
+  return (data || []).map(normalizeProjet);
 };
 
 const getProjetById = async (id) => {
@@ -186,6 +223,14 @@ const updateProjet = async (id, data) => {
     couleur_principale: data.couleurPrincipale != null ? data.couleurPrincipale : existing.couleurPrincipale || "#E11D48",
     titre_rapport: data.titreRapport !== undefined ? data.titreRapport || "" : existing.titreRapport || "",
     assigned_agent: data.assignedAgent !== undefined ? data.assignedAgent || "" : existing.assignedAgent || "",
+    report_pdf_variant:
+      data.reportPdfVariant !== undefined
+        ? normalizeReportPdfVariant(data.reportPdfVariant)
+        : normalizeReportPdfVariant(existing.reportPdfVariant),
+    report_layout:
+      data.reportLayout !== undefined
+        ? normalizeReportLayout(data.reportLayout)
+        : normalizeReportLayout(existing.reportLayout),
     statut: data.statut != null ? data.statut : existing.statut || "active",
   };
 
@@ -229,6 +274,8 @@ const duplicateProjet = async (sourceId) => {
     couleurPrincipale: source.couleurPrincipale || "#E11D48",
     titreRapport: source.titreRapport ? `${String(source.titreRapport).trim()} (copie)` : `${baseName} (copie)`,
     assignedAgent: source.assignedAgent || "",
+    reportPdfVariant: source.reportPdfVariant || "default",
+    reportLayout: source.reportLayout || { sections: [] },
     statut: "active",
   });
 
@@ -266,4 +313,5 @@ module.exports = {
   updateProjet,
   deleteProjet,
   duplicateProjet,
+  normalizeReportPdfVariant,
 };

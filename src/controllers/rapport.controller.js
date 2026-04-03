@@ -29,6 +29,14 @@ const sanitizeLongitude = (value) => {
 };
 
 const sanitizeOverrides = (overrides = {}) => {
+  const rawVariant = overrides.reportPdfVariant;
+  let reportPdfVariant;
+  if (rawVariant != null && rawVariant !== "") {
+    const v = String(rawVariant).trim().toLowerCase();
+    if (v === "a" || v === "b" || v === "c" || v === "waouh" || v === "default")
+      reportPdfVariant = v;
+  }
+
   const safe = {
     titreRapport: sanitizeText(overrides.titreRapport, 180),
     entreprise: sanitizeText(overrides.entreprise, 180),
@@ -41,8 +49,24 @@ const sanitizeOverrides = (overrides = {}) => {
     zone: sanitizeText(overrides.zone, 2000),
     assignedAgent: sanitizeText(overrides.assignedAgent, 180),
     date: sanitizeText(overrides.date, 30),
+    /** Modèle PDF : default | a | b | c | waouh */
+    reportPdfVariant,
+    reportLayout: undefined,
     panneaux: [],
   };
+
+  if (overrides.reportLayout && typeof overrides.reportLayout === "object") {
+    const sectionsIn = Array.isArray(overrides.reportLayout.sections) ? overrides.reportLayout.sections : [];
+    safe.reportLayout = {
+      sections: sectionsIn
+        .map((s) => ({
+          key: sanitizeText(s?.key, 40)?.toLowerCase(),
+          visible: s?.visible !== false,
+          deleted: s?.deleted === true,
+        }))
+        .filter((s) => !!s.key),
+    };
+  }
 
   const panneauxInput = Array.isArray(overrides.panneaux) ? overrides.panneaux.slice(0, MAX_PANELS_PER_REPORT) : [];
   safe.panneaux = panneauxInput.map((p, idx) => ({
@@ -64,6 +88,12 @@ const sanitizeOverrides = (overrides = {}) => {
   }
 
   return safe;
+};
+
+const ensureSafeVariant = (variant) => {
+  const v = String(variant || "").trim().toLowerCase();
+  if (v === "a" || v === "b" || v === "c" || v === "waouh" || v === "default") return v;
+  return "default";
 };
 
 const getPanneauReportHandler = async (req, res) => {
@@ -208,7 +238,11 @@ const getProjetReportDebugHandler = async (req, res) => {
   if (!report) return res.status(404).json({ success: false, message: "Campagne introuvable" });
   const photoLoadResults = await diagnosePhotoLoad(report);
   const debug = {
-    projet: { id: report.projet.id, nom: report.projet.nom },
+    projet: {
+      id: report.projet.id,
+      nom: report.projet.nom,
+      reportPdfVariant: ensureSafeVariant(report?.projet?.reportPdfVariant),
+    },
     panneaux: report.panneaux.map((p) => ({
       id: p.id,
       adresse: p.localisation?.adresse,
@@ -238,6 +272,8 @@ const applyProjetOverrides = (report, overrides = {}) => {
   if (overrides.zone != null) next.projet.zone = String(overrides.zone);
   if (overrides.assignedAgent != null) next.projet.assignedAgent = String(overrides.assignedAgent);
   if (overrides.date != null) next.projet.date = String(overrides.date);
+  if (overrides.reportPdfVariant != null) next.projet.reportPdfVariant = String(overrides.reportPdfVariant);
+  if (overrides.reportLayout != null) next.projet.reportLayout = overrides.reportLayout;
 
   const panneauOverrides = Array.isArray(overrides.panneaux) ? overrides.panneaux : [];
   const byId = new Map(panneauOverrides.map((p) => [String(p.id), p]));
@@ -303,10 +339,14 @@ const getProjetReportPDFUrlHandler = async (req, res) => {
   }
 
   try {
-    const { url } = await generateProjetPDF(report);
-    const data = { url };
+    const queryOverrides = sanitizeOverrides({
+      reportPdfVariant: req.query?.reportPdfVariant,
+    });
+    const reportWithOverrides = applyProjetOverrides(report, queryOverrides);
+    const { url } = await generateProjetPDF(reportWithOverrides);
+    const data = { url, reportPdfVariant: reportWithOverrides?.projet?.reportPdfVariant || null };
     if (req.query.debug === "1") {
-      data.photoLoadResults = await diagnosePhotoLoad(report);
+      data.photoLoadResults = await diagnosePhotoLoad(reportWithOverrides);
     }
     return res.status(200).json({
       success: true,
@@ -345,9 +385,14 @@ const getProjetReportPDFHandler = async (req, res) => {
   }
 
   try {
-    const { buffer, fileName } = await generateProjetPDF(report);
+    const queryOverrides = sanitizeOverrides({
+      reportPdfVariant: req.query?.reportPdfVariant,
+    });
+    const reportWithOverrides = applyProjetOverrides(report, queryOverrides);
+    const { buffer, fileName } = await generateProjetPDF(reportWithOverrides);
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename=${fileName}`);
+    res.setHeader("x-report-pdf-variant", ensureSafeVariant(reportWithOverrides?.projet?.reportPdfVariant));
     return res.status(200).send(buffer);
   } catch (error) {
     console.error("[rapport] generateProjetPDF error:", error?.message || error);
@@ -372,11 +417,17 @@ const previewProjetReportPDFHandler = async (req, res) => {
     return res.status(404).json({ success: false, message: "Campagne introuvable." });
   }
   try {
-    const overrides = sanitizeOverrides(req.body?.overrides || {});
+    const overrides = sanitizeOverrides({
+      ...(req.body?.overrides || {}),
+      reportPdfVariant: req.body?.overrides?.reportPdfVariant || req.query?.reportPdfVariant,
+    });
     const reportWithOverrides = applyProjetOverrides(report, overrides);
     const suffix = `preview-${Date.now()}`;
     const { url } = await generateProjetPDF(reportWithOverrides, { suffix });
-    return res.status(200).json({ success: true, data: { url } });
+    return res.status(200).json({
+      success: true,
+      data: { url, reportPdfVariant: ensureSafeVariant(reportWithOverrides?.projet?.reportPdfVariant) },
+    });
   } catch (error) {
     const statusCode = Number.isInteger(error?.statusCode) ? error.statusCode : 500;
     console.error("[rapport] previewProjetReportPDFHandler error:", error?.message || error);
@@ -398,10 +449,16 @@ const generateProjetReportFinalPDFHandler = async (req, res) => {
     return res.status(404).json({ success: false, message: "Campagne introuvable." });
   }
   try {
-    const overrides = sanitizeOverrides(req.body?.overrides || {});
+    const overrides = sanitizeOverrides({
+      ...(req.body?.overrides || {}),
+      reportPdfVariant: req.body?.overrides?.reportPdfVariant || req.query?.reportPdfVariant,
+    });
     const reportWithOverrides = applyProjetOverrides(report, overrides);
     const { url } = await generateProjetPDF(reportWithOverrides);
-    return res.status(200).json({ success: true, data: { url } });
+    return res.status(200).json({
+      success: true,
+      data: { url, reportPdfVariant: ensureSafeVariant(reportWithOverrides?.projet?.reportPdfVariant) },
+    });
   } catch (error) {
     const statusCode = Number.isInteger(error?.statusCode) ? error.statusCode : 500;
     console.error("[rapport] generateProjetReportFinalPDFHandler error:", error?.message || error);

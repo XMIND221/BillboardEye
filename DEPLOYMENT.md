@@ -32,6 +32,9 @@
 
 - **Flux principal** : `templates/report/` (Handlebars) + Puppeteer — le dossier doit être présent dans l’image Docker (`COPY . .` à la racine du repo).
 - **Renderer Next** (`tmp_v0_template`) : si tu déploies avec le `Dockerfile` du repo, **rebuild l’image** après modification des composants `summary-section` etc. La session PDF est enrichie côté API (`__renderExtras` : `mapImageUrl`, `mapLegend`) pour afficher la **vraie carte Mapbox** et la **correspondance des points** (plus de grille factice à 4 points).
+- **Debug utile** :
+  - `GET /api/rapport/projet/:id/debug` pour vérifier les URLs photos et chargements.
+  - `GET /api/rapport/projet/:id/pdf-url?reportPdfVariant=waouh&debug=1` pour confirmer la variante utilisée et diagnostiquer les images.
 
 ## Rôle métier (JWT)
 

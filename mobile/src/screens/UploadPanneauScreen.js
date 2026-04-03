@@ -17,12 +17,13 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import * as ImageManipulator from "expo-image-manipulator";
-import { addPhoto, createPanneau, createProjet, getProjets, getProjetPDFUrl } from "../services/api";
+import { addPhoto, createPanneau, createProjet, getProjets, getProjetPDFUrl, updateProjet } from "../services/api";
 import { savePanneauOffline, STATUS_SYNCED } from "../services/offlineStorage";
 import { parseZones } from "../services/missionStorage";
 import { useAuth } from "../contexts/AuthContext";
 import { theme } from "../theme";
 import Button from "../components/Button";
+import { PDF_TEMPLATE_OPTIONS, labelForPdfTemplate } from "../constants/pdfTemplates";
 
 const compressImage = async (uri) => {
   const compressed = await ImageManipulator.manipulateAsync(
@@ -34,16 +35,35 @@ const compressImage = async (uri) => {
 };
 
 const appendImageField = (formData, fieldName, fileUri, filename) => {
+  if (Platform.OS === "web") {
+    // Web/PWA needs a Blob/File instead of RN-style `{ uri, type }`.
+    return fetch(fileUri)
+      .then((response) => response.blob())
+      .then((blob) => {
+        formData.append(fieldName, blob, filename);
+      });
+  }
   formData.append(fieldName, {
     uri: fileUri,
     name: filename,
     type: "image/jpeg",
   });
+  return Promise.resolve();
 };
 
 const parseCoord = (val) => {
   const n = parseFloat(String(val || "").trim());
   return Number.isFinite(n) ? n : 0;
+};
+
+const getAssetUriForPreview = (asset) => {
+  const directUri = String(asset?.uri || "").trim();
+  if (directUri) return directUri;
+  // iOS PWA can return a File without usable uri.
+  if (Platform.OS === "web" && asset?.file instanceof File) {
+    return URL.createObjectURL(asset.file);
+  }
+  return "";
 };
 
 export default function UploadPanneauScreen({ navigation }) {
@@ -56,6 +76,7 @@ export default function UploadPanneauScreen({ navigation }) {
   const [newCampaignNom, setNewCampaignNom] = useState("");
   const [newCampaignEntreprise, setNewCampaignEntreprise] = useState("");
   const [newCampaignZone, setNewCampaignZone] = useState("");
+  const [reportPdfVariant, setReportPdfVariant] = useState("default");
   const [adresse, setAdresse] = useState("");
   /** Zone issue de la liste définie par le gestionnaire (campagne) */
   const [selectedManagerZone, setSelectedManagerZone] = useState("");
@@ -147,6 +168,26 @@ export default function UploadPanneauScreen({ navigation }) {
     getGps();
   }, []);
 
+  useEffect(() => {
+    if (modeNewCampaign) return;
+    setReportPdfVariant(selectedCampaign?.reportPdfVariant || "default");
+  }, [modeNewCampaign, selectedCampaign?.id, selectedCampaign?.reportPdfVariant]);
+
+  const onSelectTemplate = async (variant) => {
+    const v = String(variant || "default");
+    setReportPdfVariant(v);
+    setError("");
+    if (modeNewCampaign || !selectedCampaignId) return;
+    try {
+      await updateProjet(selectedCampaignId, { reportPdfVariant: v });
+      setCampaigns((prev) =>
+        prev.map((c) => (c.id === selectedCampaignId ? { ...c, reportPdfVariant: v } : c)),
+      );
+    } catch (err) {
+      setError(err.message || "Impossible d'enregistrer le modèle PDF.");
+    }
+  };
+
   const refreshGps = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -175,7 +216,7 @@ export default function UploadPanneauScreen({ navigation }) {
       allowsMultipleSelection: false,
     });
     if (!result.canceled && result.assets?.length) {
-      setter(result.assets[0].uri);
+      setter(getAssetUriForPreview(result.assets[0]));
       setError("");
     }
   };
@@ -202,6 +243,7 @@ export default function UploadPanneauScreen({ navigation }) {
           entreprise: newCampaignEntreprise.trim(),
           zone: newCampaignZone.trim(),
           assignedAgent: userEmail || undefined,
+          reportPdfVariant,
         });
         projetId = created.id;
         entreprise = created.entreprise || newCampaignEntreprise.trim();
@@ -232,7 +274,7 @@ export default function UploadPanneauScreen({ navigation }) {
         const formData = new FormData();
         formData.append("panneauId", String(panneau.id));
         formData.append("type", item.type);
-        appendImageField(formData, "image", compressedUri, `${item.type}-${Date.now()}.jpg`);
+        await appendImageField(formData, "image", compressedUri, `${item.type}-${Date.now()}.jpg`);
         const photo = await addPhoto(formData);
         if (photo?.url) {
           photos[item.type] = { url: photo.url };
@@ -409,6 +451,26 @@ export default function UploadPanneauScreen({ navigation }) {
         </>
       )}
 
+      <Text style={styles.label}>Template PDF</Text>
+      <Text style={styles.templateHint}>
+        Modèle actuel : {labelForPdfTemplate(reportPdfVariant)}
+      </Text>
+      <View style={styles.templateRow}>
+        {PDF_TEMPLATE_OPTIONS.map((opt) => {
+          const selected = reportPdfVariant === opt.value;
+          return (
+            <TouchableOpacity
+              key={opt.value}
+              style={[styles.templateChip, selected && styles.templateChipSelected]}
+              onPress={() => onSelectTemplate(opt.value)}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.templateChipText, selected && styles.templateChipTextSelected]}>{opt.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
       {!modeNewCampaign && selectedCampaign?.zones?.length > 0 ? (
         <>
           <Text style={styles.label}>Zone (définie par le gestionnaire)</Text>
@@ -556,6 +618,19 @@ const styles = StyleSheet.create({
   chipSelected: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
   chipText: { color: theme.colors.text, fontWeight: "700", fontSize: 15 },
   chipTextSelected: { color: "#fff" },
+  templateHint: { fontSize: 13, color: theme.colors.textMuted, marginBottom: theme.spacing.sm },
+  templateRow: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.sm, marginBottom: theme.spacing.md },
+  templateChip: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  templateChipSelected: { borderColor: theme.colors.accent, backgroundColor: theme.colors.pastels.pink },
+  templateChipText: { color: theme.colors.text, fontWeight: "700", fontSize: 13 },
+  templateChipTextSelected: { color: theme.colors.accent },
   input: {
     backgroundColor: theme.colors.surface,
     borderWidth: 1,

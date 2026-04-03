@@ -5,6 +5,30 @@ import { isDemoModeSync } from "./demoMode";
 import { handleDemoApiRequest } from "./demoApi";
 
 const AUTH_TOKEN_KEY = "@billboardeye:auth_token";
+const GET_CACHE_TTL_MS = 45 * 1000;
+const responseCache = new Map();
+const inflightGetRequests = new Map();
+
+const clearApiCache = () => {
+  responseCache.clear();
+  inflightGetRequests.clear();
+};
+
+const buildRequestCacheKey = (path, method, headers = {}, body = "") => {
+  const authPart = headers.Authorization ? `auth:${headers.Authorization}` : "auth:none";
+  return `${method}|${path}|${authPart}|${body || ""}`;
+};
+
+const getCachedResponse = (key) => {
+  const entry = responseCache.get(key);
+  if (!entry) return null;
+  const isFresh = Date.now() - entry.at <= GET_CACHE_TTL_MS;
+  if (!isFresh) {
+    responseCache.delete(key);
+    return null;
+  }
+  return entry.data;
+};
 
 const getAuthHeaders = async (customHeaders = {}) => {
   const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
@@ -54,8 +78,37 @@ const apiRequest = async (path, options = {}) => {
 
   try {
     const headers = await getAuthHeaders(options.headers);
-    const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
-    return await parseResponse(response);
+    const method = String(options.method || "GET").toUpperCase();
+    const isGet = method === "GET";
+    const bodyText = typeof options.body === "string" ? options.body : "";
+    const key = buildRequestCacheKey(path, method, headers, bodyText);
+
+    if (isGet) {
+      const cached = getCachedResponse(key);
+      if (cached !== null) return cached;
+
+      const inflight = inflightGetRequests.get(key);
+      if (inflight) return await inflight;
+    } else {
+      // Mutations can invalidate many list/details endpoints.
+      clearApiCache();
+    }
+
+    const run = (async () => {
+      const response = await fetch(`${API_BASE_URL}${path}`, { ...options, method, headers });
+      const data = await parseResponse(response);
+      if (isGet) {
+        responseCache.set(key, { data, at: Date.now() });
+      }
+      return data;
+    })();
+
+    if (isGet) inflightGetRequests.set(key, run);
+    try {
+      return await run;
+    } finally {
+      if (isGet) inflightGetRequests.delete(key);
+    }
   } catch (error) {
     console.error("Erreur API:", error, API_BASE_URL);
     throw new Error(mapUserFacingApiMessage(error));
@@ -84,8 +137,13 @@ export const getRapport = async (panneauId) => {
   return apiRequest(`/rapport/panneau/${panneauId}`);
 };
 
-export const getProjetPDFUrl = async (projetId) => {
-  return apiRequest(`/rapport/projet/${projetId}/pdf-url`);
+export const getProjetPDFUrl = async (projetId, options = {}) => {
+  const variant = String(options?.reportPdfVariant || "").trim().toLowerCase();
+  const query =
+    variant === "default" || variant === "a" || variant === "b" || variant === "c" || variant === "waouh"
+      ? `?reportPdfVariant=${encodeURIComponent(variant)}`
+      : "";
+  return apiRequest(`/rapport/projet/${projetId}/pdf-url${query}`);
 };
 
 export const previewProjetPDF = async (projetId, payload) => {
@@ -106,6 +164,10 @@ export const generateProjetPDFFinal = async (projetId, payload) => {
 
 export const getProjetReport = async (projetId) => {
   return apiRequest(`/rapport/projet/${projetId}`);
+};
+
+export const getProjetReportDebug = async (projetId) => {
+  return apiRequest(`/rapport/projet/${projetId}/debug`);
 };
 
 export const createProjet = async (payload) => {
@@ -159,6 +221,13 @@ export const deletePanneau = async (id) => {
 
 export const addPhoto = async (formData) => {
   return apiRequest("/photos", {
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const addVideo = async (formData) => {
+  return apiRequest("/videos", {
     method: "POST",
     body: formData,
   });

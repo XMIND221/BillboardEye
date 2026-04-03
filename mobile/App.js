@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Text, Platform } from "react-native";
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { StatusBar } from "expo-status-bar";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useFonts } from "expo-font";
 import { theme } from "./src/theme";
 import { AuthProvider, useAuth } from "./src/contexts/AuthContext";
 import LoginScreen from "./src/screens/LoginScreen";
@@ -29,7 +30,7 @@ import ReportingEditorScreen from "./src/screens/ReportingEditorScreen";
 import ReportingPreviewScreen from "./src/screens/ReportingPreviewScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import { clearAllSelectedProjects, clearUserRole, getUserRole, saveUserRole } from "./src/services/projectStorage";
-import { MANAGER_REPORT_SCREENS, REPORTING_MODE_SCREENS } from "./src/navigation/reportScreens";
+import { MANAGER_REPORT_SCREENS, REPORTING_MODE_SCREENS } from "./src/features/navigation";
 import ManagerHeaderActions from "./src/components/ManagerHeaderActions";
 import { ToastProvider } from "./src/contexts/ToastContext";
 import { NetworkSyncProvider } from "./src/contexts/NetworkSyncContext";
@@ -67,8 +68,31 @@ const lightStackScreenOptions = {
   headerTintColor: theme.colors.primary,
   headerTitleStyle: { color: theme.colors.text, fontWeight: "600", fontSize: 17 },
   headerShadowVisible: false,
+  headerBackTitleVisible: false,
+  headerBackButtonDisplayMode: "minimal",
+  animation: "slide_from_right",
+  gestureEnabled: true,
   contentStyle: { backgroundColor: theme.colors.canvas },
 };
+
+const tabEmojiByName = {
+  "home-outline": "🏠",
+  "clipboard-outline": "📋",
+  "grid-outline": "🧩",
+  "document-text-outline": "📄",
+  "person-outline": "👤",
+};
+
+function tabIcon(name, color, size) {
+  if (Platform.OS === "web") {
+    return (
+      <Text style={{ fontSize: Math.max(14, size - 2), color }} accessibilityLabel={name}>
+        {tabEmojiByName[name] || "•"}
+      </Text>
+    );
+  }
+  return <Ionicons name={name} size={size} color={color} />;
+}
 
 function ManagerDashboardStackNavigator() {
   return (
@@ -160,6 +184,8 @@ function ManagerProfilStackNavigator({ onSwitchRole, onSignOut, userEmail }) {
 }
 
 function ManagerTabNavigator({ onSwitchRole, onSignOut, userEmail }) {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 10);
   const DashboardTab = useMemo(
     () =>
       function DashboardTabScreen() {
@@ -206,7 +232,8 @@ function ManagerTabNavigator({ onSwitchRole, onSignOut, userEmail }) {
           backgroundColor: theme.colors.background,
           borderTopColor: theme.colors.border,
           paddingTop: 4,
-          height: 58,
+          paddingBottom: bottomInset - 4,
+          height: 58 + bottomInset,
         },
         tabBarLabelStyle: { fontSize: 10, fontWeight: "600" },
       }}
@@ -214,27 +241,27 @@ function ManagerTabNavigator({ onSwitchRole, onSignOut, userEmail }) {
       <ManagerTab.Screen
         name="ManagerDashboardTab"
         component={DashboardTab}
-        options={{ title: "Tableau", tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} /> }}
+        options={{ title: "Tableau", tabBarIcon: ({ color, size }) => tabIcon("home-outline", color, size) }}
       />
       <ManagerTab.Screen
         name="ManagerCampaignsTab"
         component={CampaignsTab}
-        options={{ title: "Campagnes", tabBarIcon: ({ color, size }) => <Ionicons name="clipboard-outline" size={size} color={color} /> }}
+        options={{ title: "Campagnes", tabBarIcon: ({ color, size }) => tabIcon("clipboard-outline", color, size) }}
       />
       <ManagerTab.Screen
         name="ManagerPanneauxTab"
         component={PanneauxTab}
-        options={{ title: "Panneaux", tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" size={size} color={color} /> }}
+        options={{ title: "Panneaux", tabBarIcon: ({ color, size }) => tabIcon("grid-outline", color, size) }}
       />
       <ManagerTab.Screen
         name="ManagerRapportsTab"
         component={RapportsTab}
-        options={{ title: "Rapports", tabBarIcon: ({ color, size }) => <Ionicons name="document-text-outline" size={size} color={color} /> }}
+        options={{ title: "Rapports", tabBarIcon: ({ color, size }) => tabIcon("document-text-outline", color, size) }}
       />
       <ManagerTab.Screen
         name="ManagerProfilTab"
         component={ProfilTab}
-        options={{ title: "Profil", tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} /> }}
+        options={{ title: "Profil", tabBarIcon: ({ color, size }) => tabIcon("person-outline", color, size) }}
       />
     </ManagerTab.Navigator>
   );
@@ -286,6 +313,8 @@ function AgentProfileStackNavigator({ onSwitchRole, onSignOut, userEmail }) {
 }
 
 function AgentTabNavigator({ onSwitchRole, onSignOut, userEmail }) {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 10);
   const MissionsTab = useMemo(
     () =>
       function MissionsTabScreen() {
@@ -318,7 +347,8 @@ function AgentTabNavigator({ onSwitchRole, onSignOut, userEmail }) {
           backgroundColor: theme.colors.background,
           borderTopColor: theme.colors.border,
           paddingTop: 4,
-          height: 58,
+          paddingBottom: bottomInset - 4,
+          height: 58 + bottomInset,
         },
         tabBarLabelStyle: { fontSize: 10, fontWeight: "600" },
       }}
@@ -328,7 +358,7 @@ function AgentTabNavigator({ onSwitchRole, onSignOut, userEmail }) {
         component={MissionsTab}
         options={{
           title: "Missions",
-          tabBarIcon: ({ color, size }) => <Ionicons name="clipboard-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => tabIcon("clipboard-outline", color, size),
         }}
       />
       <AgentTab.Screen
@@ -336,7 +366,7 @@ function AgentTabNavigator({ onSwitchRole, onSignOut, userEmail }) {
         component={PanneauxTab}
         options={{
           title: "Panneaux",
-          tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => tabIcon("grid-outline", color, size),
         }}
       />
       <AgentTab.Screen
@@ -344,7 +374,7 @@ function AgentTabNavigator({ onSwitchRole, onSignOut, userEmail }) {
         component={ProfilTab}
         options={{
           title: "Profil",
-          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => tabIcon("person-outline", color, size),
         }}
       />
     </AgentTab.Navigator>
@@ -523,6 +553,21 @@ function AppContent() {
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    ...Ionicons.font,
+  });
+  const shouldBlockOnFonts = Platform.OS !== "web";
+
+  if (shouldBlockOnFonts && !fontsLoaded) {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.colors.background }}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <AuthProvider>

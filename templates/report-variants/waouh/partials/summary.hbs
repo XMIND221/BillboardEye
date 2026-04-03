@@ -1,0 +1,37 @@
+<section class="pdf-page ww-page ww-summary">
+  <div class="ww-topbar"></div>
+  <div class="ww-summary-inner">
+    <div>
+      <div class="ww-summary-head">
+        <div class="ww-summary-bar"></div>
+        <p class="ww-eyebrow-sm">Resume de la campagne</p>
+      </div>
+      <h2 class="ww-h2">{{campaignName}}</h2>
+
+      <div class="ww-kpis">
+        <div class="ww-kpi">
+          <p class="ww-kpi-num">{{zonesCountPadded}}</p>
+          <p class="ww-kpi-lbl">Zones</p>
+        </div>
+        <div class="ww-kpi">
+          <p class="ww-kpi-num">{{billboardsCountPadded}}</p>
+          <p class="ww-kpi-lbl">Panneaux</p>
+        </div>
+        <div class="ww-kpi">
+          <p class="ww-kpi-num ww-kpi-str">{{duration}}</p>
+          <p class="ww-kpi-lbl">Durée</p>
+        </div>
+      </div>
+
+      <div class="ww-note">
+        <p class="ww-note-title">Notes et observations</p>
+        <p class="ww-note-body">{{#if noteResume}}{{noteResume}}{{else}}Aucune observation supplementaire pour cette campagne.{{/if}}</p>
+      </div>
+    </div>
+
+    <div class="ww-foot">
+      <span>{{footerBrand}}</span>
+      <span>{{footerNote}}</span>
+    </div>
+  </div>
+</section>

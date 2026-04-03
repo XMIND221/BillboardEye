@@ -1,18 +1,28 @@
 {{! Assemblage des pages — variables : voir report-template.service.js }}
 <div class="report-container" style="--primary: {{primaryCss}};">
+  {{#if showCover}}
   {{> cover}}
+  {{/if}}
+  {{#if showSummary}}
   <div class="report-page-wrapper">
     {{> summary}}
     {{> footer}}
   </div>
+  {{/if}}
+  {{#if showPanels}}
   {{#if zones}}
   <div class="report-page-wrapper">
     {{> zones}}
     {{> footer}}
   </div>
   {{/if}}
+  {{/if}}
+  {{#if showVisual}}
   {{#if visualDataUri}}
     {{> visual}}
   {{/if}}
+  {{/if}}
+  {{#if showClosing}}
   {{> closing}}
+  {{/if}}
 </div>

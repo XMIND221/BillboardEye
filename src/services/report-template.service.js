@@ -1,6 +1,6 @@
 /**
  * Rendu HTML rapport campagne depuis templates/report/ (Handlebars + partials éditables).
- * Variantes v0 : REPORT_PDF_VARIANT=a|b|c → templates/report-variants/{a|b|c}/
+ * Variantes v0 : REPORT_PDF_VARIANT=a|b|c|waouh → templates/report-variants/{a|b|c|waouh}/
  */
 const fs = require("fs/promises");
 const path = require("path");
@@ -59,12 +59,28 @@ const resolveCoverLogosDataUris = async (projet = {}) => {
   };
 };
 
-/** @returns {{ variant: string, bodyPath: string, cssPath: string, partialsDir: string }} */
-const resolveTemplateLayout = () => {
-  const v = String(process.env.REPORT_PDF_VARIANT || "default")
+/**
+ * Priorité : campagne (projet.reportPdfVariant) > env REPORT_PDF_VARIANT > default.
+ * @param {object} [projet]
+ */
+const pickPdfVariant = (projet = {}) => {
+  const fromProjet = String(projet.reportPdfVariant ?? projet.report_pdf_variant ?? "")
     .trim()
     .toLowerCase();
-  if (v === "a" || v === "b" || v === "c") {
+  if (fromProjet === "a" || fromProjet === "b" || fromProjet === "c" || fromProjet === "waouh")
+    return fromProjet;
+  const fromEnv = String(process.env.REPORT_PDF_VARIANT || "").trim().toLowerCase();
+  if (fromProjet === "default" || fromProjet === "") {
+    if (fromEnv === "a" || fromEnv === "b" || fromEnv === "c" || fromEnv === "waouh")
+      return fromEnv;
+  }
+  return "default";
+};
+
+/** @returns {{ variant: string, bodyPath: string, cssPath: string, partialsDir: string }} */
+const resolveTemplateLayout = (projet = {}) => {
+  const v = pickPdfVariant(projet);
+  if (v === "a" || v === "b" || v === "c" || v === "waouh") {
     const dir = path.join(VARIANTS_ROOT, v);
     return {
       variant: v,
@@ -78,6 +94,36 @@ const resolveTemplateLayout = () => {
     bodyPath: path.join(TEMPLATE_DIR, "body.hbs"),
     cssPath: path.join(TEMPLATE_DIR, "print.css"),
     partialsDir: PARTIALS_DIR,
+  };
+};
+
+const resolveSectionVisibility = (projet = {}) => {
+  const defaults = {
+    showCover: true,
+    showSummary: true,
+    showPanels: true,
+    showVisual: true,
+    showClosing: true,
+  };
+  const sections = Array.isArray(projet?.reportLayout?.sections) ? projet.reportLayout.sections : [];
+  if (!sections.length) return defaults;
+  const byKey = new Map(
+    sections
+      .map((s) => [String(s?.key || "").trim().toLowerCase(), s])
+      .filter(([k]) => !!k),
+  );
+  const isVisible = (key, fallback = true) => {
+    const row = byKey.get(key);
+    if (!row) return fallback;
+    if (row.deleted === true) return false;
+    return row.visible !== false;
+  };
+  return {
+    showCover: isVisible("cover", true),
+    showSummary: isVisible("summary", true),
+    showPanels: isVisible("panels", true),
+    showVisual: isVisible("visual", true),
+    showClosing: isVisible("closing", true),
   };
 };
 
@@ -99,7 +145,7 @@ const registerPartialsFresh = async (partialsDir) => {
 
 /** @param {{ projet?: object, panneaux?: any[], summary?: { total?: number } }} report */
 const renderProjetReportHtmlFromTemplate = async (report) => {
-  const layout = resolveTemplateLayout();
+  const layout = resolveTemplateLayout(report.projet || {});
   let skeleton;
   let printCss;
   let bodySource;
@@ -146,6 +192,7 @@ const renderProjetReportHtmlFromTemplate = async (report) => {
   }
 
   const coverLogos = await resolveCoverLogosDataUris(report.projet || {});
+  const sectionVisibility = resolveSectionVisibility(report.projet || {});
 
   const mapImageSrc = "";
   const mapPlaceholderText = "";
@@ -183,6 +230,7 @@ const renderProjetReportHtmlFromTemplate = async (report) => {
     zones: zonesResolved,
     visualDataUri,
     visualCaption: base.visualCaption || "",
+    ...sectionVisibility,
   };
 
   const compileBody = Handlebars.compile(bodySource);

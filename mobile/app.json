@@ -2,9 +2,7 @@
   "expo": {
     "name": "BillboardEye",
     "slug": "billboardeye-mobile",
-    "icon": "./assets/logo.png",
     "splash": {
-      "image": "./assets/logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#1A1C2E"
     },
@@ -14,12 +12,13 @@
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
-        }
-      }
+        },
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.billboardeye.mobile"
     },
     "android": {
-      "package": "com.billboardeye.mobile",
-      "usesCleartextTraffic": true
+      "package": "com.billboardeye.mobile"
     },
     "plugins": [
       "expo-asset"

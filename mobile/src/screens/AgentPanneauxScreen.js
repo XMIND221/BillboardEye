@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity } from "react-native";
 import { theme } from "../theme";
 import AppHeader from "../components/AppHeader";
@@ -8,6 +8,7 @@ import { getAllOfflineData } from "../services/offlineStorage";
 import { getAgentMissionsCache } from "../services/agentMissionCache";
 import { getRapport, getProjets } from "../services/api";
 import { useNetworkSync } from "../contexts/NetworkSyncContext";
+import { useFocusRefresh } from "../hooks/useFocusRefresh";
 
 const enrichWithPhotos = async (panneau) => {
   if (
@@ -29,6 +30,7 @@ const enrichWithPhotos = async (panneau) => {
     return panneau;
   }
 };
+const INITIAL_ENRICH_LIMIT = 12;
 
 export default function AgentPanneauxScreen({ navigation }) {
   const { refreshQueueStats, errorCount, runManualSync } = useNetworkSync();
@@ -71,19 +73,31 @@ export default function AgentPanneauxScreen({ navigation }) {
       }))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    tracked = await Promise.all(tracked.map(enrichWithPhotos));
-    setPanneaux(tracked);
+    const firstBatch = tracked.slice(0, INITIAL_ENRICH_LIMIT);
+    const remainingBatch = tracked.slice(INITIAL_ENRICH_LIMIT);
+    const enrichedFirst = await Promise.all(firstBatch.map(enrichWithPhotos));
+    setPanneaux([...enrichedFirst, ...remainingBatch]);
+    if (remainingBatch.length > 0) {
+      setTimeout(async () => {
+        try {
+          const enrichedRemaining = await Promise.all(remainingBatch.map(enrichWithPhotos));
+          setPanneaux([...enrichedFirst, ...enrichedRemaining]);
+        } catch {
+          // Keep first visible batch responsive even if rest fails.
+        }
+      }, 0);
+    }
     await refreshQueueStats();
   }, [refreshQueueStats]);
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener("focus", loadPanneaux);
-    return unsubscribe;
-  }, [navigation, loadPanneaux]);
+  const runFocusRefresh = useFocusRefresh(navigation, loadPanneaux, {
+    minIntervalMs: 20000,
+    runOnMount: true,
+  });
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadPanneaux();
+    await runFocusRefresh(true);
     setRefreshing(false);
   };
 
@@ -104,7 +118,7 @@ export default function AgentPanneauxScreen({ navigation }) {
         {errorCount > 0 ? (
           <TouchableOpacity
             style={styles.retryRow}
-            onPress={() => runManualSync().then(() => loadPanneaux())}
+            onPress={() => runManualSync().then(() => runFocusRefresh(true))}
             activeOpacity={0.85}
           >
             <Text style={styles.retryRowText}>Réessayer l’envoi</Text>

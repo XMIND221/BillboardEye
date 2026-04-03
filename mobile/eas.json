@@ -1,14 +1,17 @@
 {
   "cli": {
-    "version": ">= 18.0.0"
+    "version": ">= 18.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "production-apk": {
+      "distribution": "internal",
       "android": {
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_RAILWAY_API_URL": "https://billboardeye-production.up.railway.app/api"
+        "EXPO_PUBLIC_RAILWAY_API_URL": "https://billboardeye-production.up.railway.app/api",
+        "EAS_SKIP_AUTO_FINGERPRINT": "1"
       }
     },
     "production": {

@@ -1,9 +1,17 @@
 {{! Variante C — premium sobre (source v0) }}
 <div class="report-variant-c" style="--accent: {{primaryCss}};">
+  {{#if showCover}}
   {{> cover}}
+  {{/if}}
+  {{#if showSummary}}
   {{> summary}}
+  {{/if}}
+  {{#if showPanels}}
   {{#if zones.length}}
   {{> zones}}
   {{/if}}
+  {{/if}}
+  {{#if showClosing}}
   {{> closing}}
+  {{/if}}
 </div>

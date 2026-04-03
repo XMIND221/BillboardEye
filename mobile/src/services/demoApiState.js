@@ -28,6 +28,8 @@ const SEED = {
       statut: "active",
       clientLogoUrl: "",
       entrepriseLogoUrl: "",
+      reportPdfVariant: "default",
+      reportLayout: { sections: [] },
     },
     {
       id: "demo-projet-2",
@@ -45,6 +47,8 @@ const SEED = {
       statut: "planned",
       clientLogoUrl: "",
       entrepriseLogoUrl: "",
+      reportPdfVariant: "a",
+      reportLayout: { sections: [] },
     },
     {
       id: "demo-projet-3",
@@ -62,6 +66,8 @@ const SEED = {
       statut: "active",
       clientLogoUrl: "",
       entrepriseLogoUrl: "",
+      reportPdfVariant: "default",
+      reportLayout: { sections: [] },
     },
   ],
   panneaux: [
@@ -139,6 +145,8 @@ export function demoCreateProjet(payload) {
     statut: payload.statut || "active",
     clientLogoUrl: payload.clientLogoUrl || "",
     entrepriseLogoUrl: payload.entrepriseLogoUrl || "",
+    reportPdfVariant: payload.reportPdfVariant || "default",
+    reportLayout: payload.reportLayout || { sections: [] },
   };
   state.projets.push(row);
   return deepClone(row);

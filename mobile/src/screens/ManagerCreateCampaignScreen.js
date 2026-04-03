@@ -20,6 +20,7 @@ import { saveCampaignConfig } from "../services/campaignConfigStorage";
 import { parseZones } from "../services/missionStorage";
 import { useToast } from "../contexts/ToastContext";
 import { MANAGER_REPORT_SCREENS } from "../navigation/reportScreens";
+import { PDF_TEMPLATE_OPTIONS } from "../constants/pdfTemplates";
 
 const TOTAL_STEPS = 4;
 const STEP_LABELS = ["Infos campagne", "Terrain", "Branding", "Rapport PDF"];
@@ -77,6 +78,7 @@ export default function ManagerCreateCampaignScreen({ navigation, route }) {
   const [duration, setDuration] = useState("");
   const [legendeVisuelle, setLegendeVisuelle] = useState("");
   const [legendeCarte, setLegendeCarte] = useState("");
+  const [reportPdfVariant, setReportPdfVariant] = useState("default");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -92,6 +94,7 @@ export default function ManagerCreateCampaignScreen({ navigation, route }) {
     setAssignedAgent(editCampaign.assignedAgent || "");
     setLegendeVisuelle(editCampaign.legendeVisuelle || "");
     setLegendeCarte(editCampaign.legendeCarte || "");
+    setReportPdfVariant(editCampaign.reportPdfVariant || "default");
     const z = parseZones(editCampaign.zone);
     setZones(z.length ? z : []);
     setPerimeter("");
@@ -234,6 +237,7 @@ export default function ManagerCreateCampaignScreen({ navigation, route }) {
       primaryColor,
       reportTitle,
       zones,
+      reportPdfVariant,
     ],
   );
 
@@ -274,7 +278,9 @@ export default function ManagerCreateCampaignScreen({ navigation, route }) {
         duration,
       });
       showToast("Brouillon enregistré");
-      navigation.navigate("ManagerCampaigns");
+      navigation.navigate("ManagerCampaigns", {
+        forceRefreshToken: Date.now(),
+      });
     } catch (err) {
       setError(err.message || "Enregistrement impossible.");
     } finally {
@@ -313,11 +319,10 @@ export default function ManagerCreateCampaignScreen({ navigation, route }) {
 
       const tabNav = navigation.getParent();
       if (tabNav?.navigate) {
-        navigation.navigate("ManagerCampaigns");
-        tabNav.navigate("ManagerRapportsTab", {
-          screen: MANAGER_REPORT_SCREENS.Generate,
-          params: { preselectedCampaignId: result.id, reportingUiMode: "manager" },
+        navigation.navigate("ManagerCampaigns", {
+          forceRefreshToken: Date.now(),
         });
+        navigation.navigate("ManagerCampaignDetail", { campaign: result });
       } else {
         navigation.replace("ManagerCampaignDetail", { campaign: result });
       }
@@ -510,6 +515,25 @@ export default function ManagerCreateCampaignScreen({ navigation, route }) {
         placeholder="Texte sous la photo pleine page"
         placeholderTextColor={theme.colors.textMuted}
       />
+      <Text style={styles.label}>Modèle de rapport PDF</Text>
+      <View style={styles.templateRow}>
+        {PDF_TEMPLATE_OPTIONS.map((opt) => {
+          const selected = reportPdfVariant === opt.value;
+          return (
+            <TouchableOpacity
+              key={opt.value}
+              style={[styles.templateChip, selected && styles.templateChipSelected]}
+              onPress={() => setReportPdfVariant(opt.value)}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.templateChipTitle, selected && styles.templateChipTitleSelected]}>{opt.label}</Text>
+              <Text style={styles.templateChipHint} numberOfLines={2}>
+                {opt.hint}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
       <View style={styles.readonlyCard}>
         <Text style={styles.readonlyLabel}>Métadonnées</Text>
         <Text style={styles.readonlyLine}>Agent : {assignedAgent.trim() || "—"}</Text>
@@ -656,4 +680,18 @@ const styles = StyleSheet.create({
   primaryButton: { marginTop: 0 },
   draftButton: { marginTop: 0 },
   error: { color: theme.colors.error, marginTop: theme.spacing.md, fontSize: 14, fontWeight: "600" },
+  templateRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: theme.spacing.sm },
+  templateChip: {
+    width: "47%",
+    minWidth: 140,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    padding: 12,
+    backgroundColor: theme.colors.surface,
+  },
+  templateChipSelected: { borderColor: theme.colors.accent, backgroundColor: theme.colors.muted },
+  templateChipTitle: { fontSize: 14, fontWeight: "800", color: theme.colors.text },
+  templateChipTitleSelected: { color: theme.colors.accent },
+  templateChipHint: { fontSize: 11, color: theme.colors.textMuted, marginTop: 4, lineHeight: 14 },
 });

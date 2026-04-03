@@ -8,9 +8,13 @@ import SectionHeader from "../components/manager/SectionHeader";
 import KpiCard from "../components/manager/KpiCard";
 import ProgressBarBlock from "../components/manager/ProgressBarBlock";
 import ErrorBanner from "../components/manager/ErrorBanner";
-import { attachReportMetricsToCampaigns } from "../utils/campaignMetrics";
+import {
+  attachCachedReportMetricsToCampaigns,
+  warmReportMetricsCache,
+} from "../utils/campaignMetrics";
 import { Ionicons } from "@expo/vector-icons";
 import { MANAGER_REPORT_SCREENS } from "../navigation/reportScreens";
+import { useFocusRefresh } from "../hooks/useFocusRefresh";
 
 export default function ManagerDashboardScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
@@ -25,49 +29,54 @@ export default function ManagerDashboardScreen({ navigation }) {
   });
   const [watchlist, setWatchlist] = useState([]);
 
+  const updateDashboardState = useCallback((campaigns, panneaux, campaignsWithMetrics) => {
+    const visibleProjetIds = new Set((campaigns || []).map((c) => c.id));
+    const scoped = (panneaux || []).filter((p) => p.projetId && visibleProjetIds.has(p.projetId));
+
+    const withData = campaignsWithMetrics.filter((c) => c.total > 0);
+    const avgProgress = withData.length > 0 ? Math.round(withData.reduce((s, c) => s + c.progress, 0) / withData.length) : 0;
+    const globalTotal = campaignsWithMetrics.reduce((s, c) => s + (c.total || 0), 0);
+    const globalCompleted = campaignsWithMetrics.reduce((s, c) => s + (c.completed || 0), 0);
+    const inProgress = campaignsWithMetrics.filter((c) => c.status === "En cours").slice(0, 4);
+
+    setStats({
+      activeCampaigns: (campaigns || []).length,
+      totalPanels: scoped.length,
+      avgProgress,
+      globalTotal,
+      globalCompleted,
+    });
+    setWatchlist(inProgress);
+  }, []);
+
   const loadData = useCallback(async () => {
     try {
       setError("");
       const [campaigns, panneaux] = await Promise.all([getProjets(), getPanneaux()]);
-      const visibleProjetIds = new Set((campaigns || []).map((c) => c.id));
-      const scoped = (panneaux || []).filter((p) => p.projetId && visibleProjetIds.has(p.projetId));
-
-      const withMetrics = await attachReportMetricsToCampaigns(campaigns || []);
-      const withData = withMetrics.filter((c) => c.total > 0);
-      const avgProgress =
-        withData.length > 0 ? Math.round(withData.reduce((s, c) => s + c.progress, 0) / withData.length) : 0;
-      const globalTotal = withMetrics.reduce((s, c) => s + (c.total || 0), 0);
-      const globalCompleted = withMetrics.reduce((s, c) => s + (c.completed || 0), 0);
-
-      const inProgress = withMetrics.filter((c) => c.status === "En cours").slice(0, 4);
-
-      setStats({
-        activeCampaigns: (campaigns || []).length,
-        totalPanels: scoped.length,
-        avgProgress,
-        globalTotal,
-        globalCompleted,
-      });
-      setWatchlist(inProgress);
+      const cached = attachCachedReportMetricsToCampaigns(campaigns || []);
+      updateDashboardState(campaigns || [], panneaux || [], cached);
+      await warmReportMetricsCache(campaigns || []);
+      const refreshed = attachCachedReportMetricsToCampaigns(campaigns || []);
+      updateDashboardState(campaigns || [], panneaux || [], refreshed);
     } catch (err) {
       setError(err.message || "Impossible de charger le tableau de bord.");
     }
-  }, []);
+  }, [updateDashboardState]);
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener("focus", () => {
-      (async () => {
-        setLoading(true);
-        await loadData();
-        setLoading(false);
-      })();
-    });
-    return unsubscribe;
-  }, [loadData, navigation]);
+  const refreshDashboard = useCallback(async () => {
+    setLoading(true);
+    await loadData();
+    setLoading(false);
+  }, [loadData]);
+
+  const runFocusRefresh = useFocusRefresh(navigation, refreshDashboard, {
+    minIntervalMs: 20000,
+    runOnMount: true,
+  });
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await runFocusRefresh(true);
     setRefreshing(false);
   };
 
@@ -79,8 +88,8 @@ export default function ManagerDashboardScreen({ navigation }) {
   return (
     <View style={styles.root}>
       <AppHeader />
-      <ScrollView
-        contentContainerStyle={styles.container}
+    <ScrollView
+      contentContainerStyle={styles.container}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.accent} />}
       >
         <SectionHeader
@@ -97,7 +106,7 @@ export default function ManagerDashboardScreen({ navigation }) {
           >
             <View style={[styles.quickIcon, { backgroundColor: theme.colors.primaryMuted }]}>
               <Ionicons name="add" size={22} color={theme.colors.primary} />
-            </View>
+          </View>
             <Text style={styles.quickText}>Campagne</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -107,7 +116,7 @@ export default function ManagerDashboardScreen({ navigation }) {
           >
             <View style={[styles.quickIcon, { backgroundColor: theme.colors.pastels.green }]}>
               <Ionicons name="add" size={22} color={theme.colors.success} />
-            </View>
+          </View>
             <Text style={styles.quickText}>Panneau</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -205,10 +214,10 @@ export default function ManagerDashboardScreen({ navigation }) {
               activeOpacity={0.85}
             >
               <Text style={styles.linkText}>Rapports PDF →</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </ScrollView>
+          </TouchableOpacity>
+        </>
+      )}
+    </ScrollView>
     </View>
   );
 }

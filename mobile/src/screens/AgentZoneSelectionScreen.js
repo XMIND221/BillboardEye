@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native";
 import { theme } from "../theme";
 import { getMissionProgress } from "../services/missionStorage";
+import { useFocusRefresh } from "../hooks/useFocusRefresh";
 
 const ZONE_COLORS = [
   theme.colors.pastels.blue,
@@ -17,20 +18,16 @@ export default function AgentZoneSelectionScreen({ navigation, route }) {
   const suggestedZone = route.params?.suggestedZone || null;
   const [completedSet, setCompletedSet] = useState(() => new Set());
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      if (!mission?.id) return;
-      const p = await getMissionProgress(mission.id, zones);
-      if (!cancelled) setCompletedSet(new Set(p.completedZones || []));
-    };
-    load();
-    const unsub = navigation.addListener("focus", load);
-    return () => {
-      cancelled = true;
-      unsub();
-    };
-  }, [navigation, mission?.id, zones]);
+  const loadProgress = useCallback(async () => {
+    if (!mission?.id) return;
+    const p = await getMissionProgress(mission.id, zones);
+    setCompletedSet(new Set(p.completedZones || []));
+  }, [mission?.id, zones]);
+
+  useFocusRefresh(navigation, loadProgress, {
+    minIntervalMs: 10000,
+    runOnMount: true,
+  });
 
   const goExecution = (zone) => {
     navigation.navigate("AgentExecution", { mission, zone, zones });

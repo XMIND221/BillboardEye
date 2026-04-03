@@ -8,18 +8,20 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Platform,
 } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
 import { theme } from "../theme";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import * as ImageManipulator from "expo-image-manipulator";
-import { addPhoto, createPanneau, isNetworkError } from "../services/api";
+import { addPhoto, addVideo, createPanneau, isNetworkError } from "../services/api";
 import { getMissionProgress, markZoneCompleted } from "../services/missionStorage";
 import { savePanneauOffline, savePhotoOffline, STATUS_PENDING, STATUS_SYNCED } from "../services/offlineStorage";
 import { useToast } from "../contexts/ToastContext";
 import { useNetworkSync } from "../contexts/NetworkSyncContext";
 import Button from "../components/Button";
+import AppHeader from "../components/AppHeader";
 
 /** Plus petit = upload plus rapide sur mobile (qualité encore correcte pour le terrain). */
 const compressImage = async (uri) => {
@@ -31,12 +33,18 @@ const compressImage = async (uri) => {
   return compressed.uri;
 };
 
-/** React Native : utiliser { uri, name, type } — les Blob dans FormData provoquent souvent « Network request failed ». */
-const appendImageField = (formData, fieldName, fileUri, filename) => {
+/** Web + mobile : adapte l'ajout d'image au FormData selon la plateforme. */
+const appendImageField = async (formData, fieldName, fileUri, filename, mimeType = "image/jpeg") => {
+  if (Platform.OS === "web") {
+    const response = await fetch(fileUri);
+    const blob = await response.blob();
+    formData.append(fieldName, blob, filename);
+    return;
+  }
   formData.append(fieldName, {
     uri: fileUri,
     name: filename,
-    type: "image/jpeg",
+    type: mimeType,
   });
 };
 
@@ -49,6 +57,23 @@ function computeOnline(state) {
 
 const generateLocalId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+const getAssetUriForPreview = (asset) => {
+  const directUri = String(asset?.uri || "").trim();
+  if (directUri) return directUri;
+  // iOS PWA may provide File without stable uri.
+  if (Platform.OS === "web" && asset?.file instanceof File) {
+    return URL.createObjectURL(asset.file);
+  }
+  return "";
+};
+const getAssetDurationSec = (asset) => {
+  const ms = Number(asset?.duration ?? 0);
+  if (Number.isFinite(ms) && ms > 0) return Math.round(ms / 1000);
+  return 0;
+};
+
+const isBlobUri = (value) => String(value || "").startsWith("blob:");
+
 export default function AgentExecutionScreen({ navigation, route }) {
   const { showToast } = useToast();
   const { refreshQueueStats } = useNetworkSync();
@@ -57,6 +82,8 @@ export default function AgentExecutionScreen({ navigation, route }) {
   const zones = route.params?.zones || [];
   const [faceAUri, setFaceAUri] = useState("");
   const [faceBUri, setFaceBUri] = useState("");
+  const [videoUri, setVideoUri] = useState("");
+  const [videoDurationSec, setVideoDurationSec] = useState(0);
   const [gps, setGps] = useState({ latitude: null, longitude: null });
   const [capturedAt, setCapturedAt] = useState(new Date().toISOString());
   const [loading, setLoading] = useState(false);
@@ -64,7 +91,17 @@ export default function AgentExecutionScreen({ navigation, route }) {
   const [error, setError] = useState("");
   const [allowNoGps, setAllowNoGps] = useState(false);
 
-  const canValidate = useMemo(() => Boolean(faceAUri && faceBUri), [faceAUri, faceBUri]);
+  const hasFullPhotoSet = useMemo(() => Boolean(faceAUri && faceBUri), [faceAUri, faceBUri]);
+  const hasVideo = useMemo(() => Boolean(videoUri), [videoUri]);
+  const canValidate = hasFullPhotoSet || hasVideo;
+  const missingPhotoHint = useMemo(() => {
+    if (canValidate) return "";
+    if (!faceAUri && !faceBUri && !videoUri) return "Ajoutez Face A + Face B, ou une vidéo, pour valider.";
+    if (videoUri) return "";
+    if (!faceAUri && !faceBUri) return "Ajoutez Face A + Face B, ou une vidéo.";
+    if (!faceAUri) return "Face A manquante (ou ajoutez une vidéo).";
+    return "Face B manquante (ou ajoutez une vidéo).";
+  }, [canValidate, faceAUri, faceBUri, videoUri]);
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -84,13 +121,53 @@ export default function AgentExecutionScreen({ navigation, route }) {
     bootstrap();
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (Platform.OS !== "web") return;
+      if (isBlobUri(faceAUri)) URL.revokeObjectURL(faceAUri);
+      if (isBlobUri(faceBUri)) URL.revokeObjectURL(faceBUri);
+      if (isBlobUri(videoUri)) URL.revokeObjectURL(videoUri);
+    };
+  }, [faceAUri, faceBUri, videoUri]);
+
   const takePhoto = async (setter) => {
-    const result = await ImagePicker.launchCameraAsync({
+    const openPicker =
+      Platform.OS === "web" ? ImagePicker.launchImageLibraryAsync : ImagePicker.launchCameraAsync;
+    const result = await openPicker({
       mediaTypes: ["images"],
       quality: 0.8,
+      allowsMultipleSelection: false,
     });
     if (!result.canceled && result.assets?.length) {
-      setter(result.assets[0].uri);
+      const previewUri = getAssetUriForPreview(result.assets[0]);
+      if (previewUri) {
+        setter(previewUri);
+        setError("");
+      } else {
+        setError("Photo non récupérée sur iPhone web. Réessayez via la galerie.");
+      }
+    }
+  };
+
+  const takeVideo = async () => {
+    const openPicker =
+      Platform.OS === "web" ? ImagePicker.launchImageLibraryAsync : ImagePicker.launchCameraAsync;
+    const result = await openPicker({
+      mediaTypes: ["videos"],
+      allowsMultipleSelection: false,
+      quality: 0.7,
+      videoMaxDuration: 20,
+    });
+    if (!result.canceled && result.assets?.length) {
+      const asset = result.assets[0];
+      const previewUri = getAssetUriForPreview(asset);
+      if (previewUri) {
+        setVideoUri(previewUri);
+        setVideoDurationSec(getAssetDurationSec(asset));
+        setError("");
+      } else {
+        setError("Vidéo non récupérée. Réessayez.");
+      }
     }
   };
 
@@ -121,7 +198,7 @@ export default function AgentExecutionScreen({ navigation, route }) {
 
   const validatePanel = async () => {
     if (!canValidate) {
-      setError("Face A et Face B requises.");
+      setError("Ajoutez Face A + Face B, ou une vidéo.");
       return;
     }
 
@@ -156,7 +233,8 @@ export default function AgentExecutionScreen({ navigation, route }) {
       }
 
       setLoadingHint("Préparation…");
-      const [compressedA, compressedB] = await Promise.all([compressImage(faceAUri), compressImage(faceBUri)]);
+      const compressedA = hasFullPhotoSet ? await compressImage(faceAUri) : "";
+      const compressedB = hasFullPhotoSet ? await compressImage(faceBUri) : "";
 
       const netState = await NetInfo.fetch();
       const online = computeOnline(netState);
@@ -177,19 +255,40 @@ export default function AgentExecutionScreen({ navigation, route }) {
         });
 
         const ts = Date.now();
-        const buildForm = (type, compressedUri) => {
+        const buildForm = async (type, compressedUri) => {
           const formData = new FormData();
           formData.append("panneauId", String(panneau.id));
           formData.append("type", type);
-          appendImageField(formData, "image", compressedUri, `${type}-${ts}.jpg`);
+          await appendImageField(formData, "image", compressedUri, `${type}-${ts}.jpg`);
           return formData;
         };
 
-        setLoadingHint("Envoi photos…");
-        const [photoA, photoB] = await Promise.all([
-          addPhoto(buildForm("faceA", compressedA)),
-          addPhoto(buildForm("faceB", compressedB)),
-        ]);
+        let photoA = null;
+        let photoB = null;
+        if (hasFullPhotoSet) {
+          setLoadingHint("Envoi photos…");
+          const [formA, formB] = await Promise.all([
+            buildForm("faceA", compressedA),
+            buildForm("faceB", compressedB),
+          ]);
+          [photoA, photoB] = await Promise.all([
+            addPhoto(formA),
+            addPhoto(formB),
+          ]);
+        }
+
+        let video = null;
+        if (videoUri) {
+          setLoadingHint("Envoi vidéo…");
+          const videoForm = new FormData();
+          videoForm.append("panneauId", String(panneau.id));
+          await appendImageField(videoForm, "video", videoUri, `video-${ts}.mp4`, "video/mp4");
+          try {
+            video = await addVideo(videoForm);
+          } catch (_videoErr) {
+            // Non bloquant: on garde la validation panneau même si la vidéo échoue.
+          }
+        }
 
         const photos = {};
         if (photoA?.url) photos.faceA = { url: photoA.url };
@@ -211,6 +310,7 @@ export default function AgentExecutionScreen({ navigation, route }) {
           statut: STATUS_SYNCED,
           createdAt: panneau.createdAt || capturedAt,
           photos: Object.keys(photos).length ? photos : null,
+          video: video?.url ? { url: video.url, durationSec: videoDurationSec || undefined } : null,
         });
       };
 
@@ -269,21 +369,26 @@ export default function AgentExecutionScreen({ navigation, route }) {
         },
         nombreFaces: 2,
         createdAt: capturedAt,
-        photos: {
-          faceA: { localUri: compressedA },
-          faceB: { localUri: compressedB },
-        },
+        photos: hasFullPhotoSet
+          ? {
+              faceA: { localUri: compressedA },
+              faceB: { localUri: compressedB },
+            }
+          : null,
+        video: hasVideo ? { localUri: videoUri, durationSec: videoDurationSec || undefined } : null,
       });
-      await savePhotoOffline({
-        panneauLocalId: localPanneauId,
-        type: "faceA",
-        url: compressedA,
-      });
-      await savePhotoOffline({
-        panneauLocalId: localPanneauId,
-        type: "faceB",
-        url: compressedB,
-      });
+      if (hasFullPhotoSet) {
+        await savePhotoOffline({
+          panneauLocalId: localPanneauId,
+          type: "faceA",
+          url: compressedA,
+        });
+        await savePhotoOffline({
+          panneauLocalId: localPanneauId,
+          type: "faceB",
+          url: compressedB,
+        });
+      }
 
       await markZoneCompleted(mission.id, zone);
       const next = await getMissionProgress(mission.id, zones);
@@ -318,11 +423,16 @@ export default function AgentExecutionScreen({ navigation, route }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <View style={styles.screen}>
+      <AppHeader title="Exécution terrain" onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined} />
+      <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Zone · photos</Text>
         <Text style={styles.meta}>{zone || "—"}</Text>
         <Text style={styles.stepHint}>1. Face A · 2. Face B · 3. Valider</Text>
+        {Platform.OS === "web" ? (
+          <Text style={styles.webHint}>iPhone web : sélectionnez la photo depuis la galerie.</Text>
+        ) : null}
       </View>
 
       <TouchableOpacity style={styles.actionButton} onPress={() => takePhoto(setFaceAUri)} activeOpacity={0.85}>
@@ -335,6 +445,15 @@ export default function AgentExecutionScreen({ navigation, route }) {
       </TouchableOpacity>
       {!!faceBUri && <Image source={{ uri: faceBUri }} style={styles.preview} />}
 
+      <TouchableOpacity style={styles.actionButton} onPress={takeVideo} activeOpacity={0.85}>
+        <Text style={styles.actionText}>Vidéo (optionnel) {videoUri ? " ✓" : ""}</Text>
+      </TouchableOpacity>
+      {!!videoUri && (
+        <Text style={styles.videoHint}>
+          Vidéo ajoutée{videoDurationSec > 0 ? ` (${videoDurationSec}s)` : ""}.
+        </Text>
+      )}
+
       <Button
         title="Valider"
         variant="success"
@@ -343,6 +462,7 @@ export default function AgentExecutionScreen({ navigation, route }) {
         loading={loading}
         style={[styles.validateButton, !canValidate && styles.validateDisabled]}
       />
+      {!loading && !!missingPhotoHint ? <Text style={styles.validationHint}>{missingPhotoHint}</Text> : null}
       {loading && !!loadingHint && <Text style={styles.loadingHint}>{loadingHint}</Text>}
 
       <TouchableOpacity
@@ -357,11 +477,24 @@ export default function AgentExecutionScreen({ navigation, route }) {
       </TouchableOpacity>
 
       {!!error && <Text style={styles.error}>{error}</Text>}
-    </ScrollView>
+
+      <TouchableOpacity
+        style={styles.backMissionButton}
+        onPress={() => navigation.navigate("AgentMissionDetail", { mission })}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.backMissionText}>Retour mission</Text>
+      </TouchableOpacity>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flexGrow: 1,
     backgroundColor: theme.colors.background,
@@ -372,6 +505,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: "800", color: theme.colors.text, marginBottom: 6 },
   meta: { color: theme.colors.textSecondary, fontSize: 15, marginBottom: 4 },
   stepHint: { color: theme.colors.textMuted, fontSize: 13, fontWeight: "600" },
+  webHint: { color: theme.colors.textMuted, fontSize: 12, marginTop: 6 },
   actionButton: {
     marginTop: theme.spacing.md,
     borderWidth: 2,
@@ -386,6 +520,12 @@ const styles = StyleSheet.create({
   preview: { marginTop: theme.spacing.sm, width: "100%", height: 180, borderRadius: theme.radius.lg },
   validateButton: { marginTop: theme.spacing.xl, minHeight: 52 },
   validateDisabled: { opacity: 0.5 },
+  validationHint: {
+    marginTop: theme.spacing.sm,
+    textAlign: "center",
+    color: theme.colors.textMuted,
+    fontSize: 13,
+  },
   loadingHint: {
     marginTop: theme.spacing.sm,
     textAlign: "center",
@@ -394,5 +534,16 @@ const styles = StyleSheet.create({
   },
   gpsLink: { marginTop: theme.spacing.md, paddingVertical: 12, alignItems: "center" },
   gpsLinkText: { color: theme.colors.primary, fontWeight: "700", fontSize: 14 },
+  videoHint: { color: theme.colors.textMuted, fontSize: 13, marginTop: theme.spacing.xs },
   error: { color: theme.colors.error, marginTop: theme.spacing.md, fontSize: 14 },
+  backMissionButton: {
+    marginTop: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    paddingVertical: 12,
+    alignItems: "center",
+    backgroundColor: theme.colors.surface,
+  },
+  backMissionText: { color: theme.colors.text, fontWeight: "600", fontSize: 14 },
 });

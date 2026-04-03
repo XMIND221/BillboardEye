@@ -42,6 +42,8 @@ export default function ManagerPanneauFormScreen({ navigation, route }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const parseCoord = (value) => Number(String(value || "").replace(",", ".").trim());
+
   const loadProjets = useCallback(async () => {
     try {
       setLoadingProjets(true);
@@ -81,10 +83,18 @@ export default function ManagerPanneauFormScreen({ navigation, route }) {
       setError("Le nom / entreprise du site est obligatoire.");
       return;
     }
-    const la = Number(lat);
-    const lo = Number(lng);
+    const la = parseCoord(lat);
+    const lo = parseCoord(lng);
     if (!Number.isFinite(la) || !Number.isFinite(lo)) {
       setError("Latitude et longitude valides obligatoires.");
+      return;
+    }
+    if (la < -90 || la > 90) {
+      setError("Latitude hors bornes (-90 à 90).");
+      return;
+    }
+    if (lo < -180 || lo > 180) {
+      setError("Longitude hors bornes (-180 à 180).");
       return;
     }
     if (!projetId) {
@@ -177,7 +187,7 @@ export default function ManagerPanneauFormScreen({ navigation, route }) {
             <TextInput
               style={styles.input}
               value={lat}
-              onChangeText={setLat}
+              onChangeText={(v) => setLat(String(v || "").replace(",", "."))}
               placeholder="Latitude"
               keyboardType="decimal-pad"
               placeholderTextColor={theme.colors.textMuted}
@@ -185,7 +195,7 @@ export default function ManagerPanneauFormScreen({ navigation, route }) {
             <TextInput
               style={styles.input}
               value={lng}
-              onChangeText={setLng}
+              onChangeText={(v) => setLng(String(v || "").replace(",", "."))}
               placeholder="Longitude"
               keyboardType="decimal-pad"
               placeholderTextColor={theme.colors.textMuted}

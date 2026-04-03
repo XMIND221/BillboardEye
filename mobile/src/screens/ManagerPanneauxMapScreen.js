@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Linking } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { theme } from "../theme";
@@ -7,6 +7,7 @@ import ManagerChipRow from "../components/manager/ManagerChipRow";
 import PanneauxScatterMap from "../components/manager/PanneauxScatterMap";
 import { getPanneaux, getProjets, getRapport } from "../services/api";
 import { collectPanneauZones } from "../utils/managerVisualStatus";
+import { useFocusRefresh } from "../hooks/useFocusRefresh";
 
 const enrichWithPhotos = async (panneau) => {
   if (panneau.photos?.faceA?.url || panneau.photos?.faceB?.url) return panneau;
@@ -52,16 +53,19 @@ export default function ManagerPanneauxMapScreen({ navigation }) {
     setPanneaux(list);
   }, []);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        await load();
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const refreshMap = useCallback(async () => {
+    setLoading(true);
+    try {
+      await load();
+    } finally {
+      setLoading(false);
+    }
   }, [load]);
+
+  useFocusRefresh(navigation, refreshMap, {
+    minIntervalMs: 20000,
+    runOnMount: true,
+  });
 
   const zoneOptions = useMemo(() => {
     const zones = collectPanneauZones(panneaux);

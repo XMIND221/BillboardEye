@@ -1,22 +1,26 @@
 # Variantes PDF (v0 → Handlebars)
 
-Trois mises en page **sans carte** : pages couverture, résumé, zones (panneaux + photos), clôture.
+Quatre mises en page **sans carte** : pages couverture, résumé, zones (panneaux + photos), clôture.
 
 | Variante | Style |
 |----------|--------|
 | `a` | Editorial minimal |
 | `b` | Corporate bold (fond sombre couverture / clôture) |
 | `c` | Premium sobre (noir & papier) |
+| `waouh` | WAOUH AGENCE (premium client) |
 
 ## Activation
 
-Variable d’environnement :
+1. **Par campagne (recommandé)** : champ projet `reportPdfVariant` = `default` | `a` | `b` | `c` | `waouh`  
+   — choisi dans l’app mobile (création / édition campagne, écran « Personnaliser rapport ») et stocké en base (`report_pdf_variant`).
+
+2. **Fallback serveur** : si la campagne est en `default`, la variable d’environnement peut forcer un modèle :
 
 ```bash
-REPORT_PDF_VARIANT=a   # ou b, c
+REPORT_PDF_VARIANT=a   # ou b, c, waouh
 ```
 
-Sans variable ou `default` : template historique dans `templates/report/`.
+Sinon : template historique dans `templates/report/`.
 
 ## Données projet (optionnel)
 
