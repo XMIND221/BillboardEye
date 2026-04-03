@@ -8,6 +8,13 @@ tmp_v0_template/.next/
 v0_ui_import/node_modules/
 v0_ui_import/.next/
 tmp-v0-report-zip/
+tmp-v0-waouh-zip/
+tmp-waouh-zip/
+tmp-waouh-zip-2/
+
+# Ne jamais lancer `eas build` depuis la racine du monorepo (utiliser mobile/).
+# Si un eas.json est recréé ici, le supprimer — la config EAS est dans mobile/eas.json.
+/eas.json
 
 dist/
 admin/dist/

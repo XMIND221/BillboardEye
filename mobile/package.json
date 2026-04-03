@@ -13,7 +13,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "doctor": "scripts\\doctor-mobile-env.cmd",
-    "doctor:expo": "npx expo-doctor"
+    "doctor:expo": "npx expo-doctor",
+    "eas-apk": "npx eas-cli@latest build -p android --profile production-apk"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",

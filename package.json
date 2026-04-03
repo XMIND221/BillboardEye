@@ -18,6 +18,7 @@
     "android": "npm --prefix mobile run android",
     "ios": "npm --prefix mobile run ios",
     "web": "npm --prefix mobile run web",
+    "mobile:eas-apk": "npm --prefix mobile run eas-apk",
     "ui:v0": "npm --prefix v0_ui_import run dev",
     "ui:v0:build": "npm --prefix v0_ui_import run build",
     "test": "node --test test/*.test.js"
